@@ -1309,7 +1309,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
-if __name__ == "__main__":
+def main():
     args = parse_args()
 
     # Handle --me flag
@@ -1321,3 +1321,7 @@ if __name__ == "__main__":
 
     app = SlurmDashboard(refresh_sec=args.refresh, user=user_filter, partition=args.partition)
     app.run()
+
+
+if __name__ == "__main__":
+    main()
