@@ -691,7 +691,8 @@ class Filter:
     def apply_jobs(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         res = rows
         if self.user:
-            res = [r for r in res if r.get("USER", "").lower() == self.user.lower()]
+            # Check both USERNAME (enhanced format) and USER (fallback format)
+            res = [r for r in res if (r.get("USERNAME", "") or r.get("USER", "")).lower() == self.user.lower()]
         if self.partition:
             res = [r for r in res if self.partition.lower() in r.get("PARTITION", "").lower()]
         if self.state:
