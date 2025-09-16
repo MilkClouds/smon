@@ -17,16 +17,22 @@ A terminal user interface (TUI) for monitoring Slurm clusters. Built with Textua
 
 ## Installation
 
-### Using uvx (recommended)
+### Using `uvx`/`uv tool` (recommended)
 
 ```sh
-uvx --from git+https://github.com/MilkClouds/smon.git smon
+# 1. Use uvx
+$ uvx --from git+https://github.com/MilkClouds/smon.git smon
+
+# 2. Use uv tool
+$ uv tool install git+https://github.com/MilkClouds/smon.git
+$ smon
 ```
 
 ### Using pip
 
 ```sh
-pip install git+https://github.com/MilkClouds/smon.git
+$ pip install git+https://github.com/MilkClouds/smon.git
+$ smon
 ```
 
 ## Usage
