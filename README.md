@@ -91,6 +91,10 @@ smon --partition gpu           # Filter jobs by partition
 - [Textual](https://github.com/Textualize/textual) - TUI framework
 - [Rich](https://github.com/Textualize/rich) - Text formatting
 
+## Related projects
+
+- https://github.com/wjwei-handsome/Slurmer
+
 ## Contributing
 
 This TUI project is primarily implemented using LLM assistance (Sonnet 4/GPT-4) and is incomplete with known bugs. Contributions are welcome:
