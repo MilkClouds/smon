@@ -1,5 +1,7 @@
 # smon
 
+<img width="1348" height="763" alt="image" src="https://github.com/user-attachments/assets/81379b1e-3547-42a5-bde1-725c51b521f6" />
+
 A terminal user interface (TUI) for monitoring Slurm clusters. Built with Textual for DGX H100 clusters.
 
 > **⚠️ Development Notice**: This project is mainly implemented by LLM (Sonnet 4/GPT-4) and is not complete, has bugs. Contributions are welcome, including major changes.
