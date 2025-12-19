@@ -4,12 +4,83 @@ APP_CSS = """
 Screen { layout: vertical; }
 .bar { height: 1; }
 .pane { height: 1fr; }
-.detail { padding: 1; }
-.detail-container { height: 15; border: round $surface; padding: 1; overflow-y: auto; }
-.script { height: 20; border: round green; padding: 1; overflow-y: auto; }
-.syntax-viewer { height: 1fr; border: round blue; padding: 1; overflow-y: auto; }
-.log-viewer { height: 1fr; border: round yellow; padding: 1; overflow-y: auto; }
-.log-container { height: 1fr; }
+
+/* Split View Layout */
+.split-container {
+    height: 1fr;
+    width: 100%;
+}
+
+.list-pane {
+    width: 45%;
+    min-width: 40;
+    height: 100%;
+    border-right: solid $primary;
+}
+
+.detail-pane {
+    width: 55%;
+    height: 100%;
+    padding-left: 1;
+}
+
+.table-container {
+    height: 1fr;
+    overflow-y: auto;
+    scrollbar-background: $surface;
+    scrollbar-color: $primary;
+}
+
+/* Detail sections in right pane */
+.detail-section {
+    height: 6;
+    border: round $surface;
+    padding: 0 1;
+    overflow-y: auto;
+}
+
+.script-section {
+    height: 12;
+    margin-top: 1;
+}
+
+.section-header {
+    height: 1;
+    background: $primary-darken-2;
+    padding-left: 1;
+}
+
+.script-scroll {
+    height: 1fr;
+    border: solid $accent;
+    overflow-y: auto;
+}
+
+.output-section {
+    height: 1fr;
+    margin-top: 1;
+}
+
+.output-split {
+    height: 1fr;
+}
+
+.output-half {
+    width: 1fr;
+    padding: 0 1;
+}
+
+.output-label {
+    height: 1;
+    text-align: center;
+}
+
+.output-viewer {
+    height: 1fr;
+    border: solid $surface-lighten-1;
+    padding: 0 1;
+    overflow-y: auto;
+}
 
 /* Beautiful Modal screen styles */
 ScriptModal {
@@ -91,4 +162,3 @@ OutputModal {
     scrollbar-color: $success;
 }
 """
-

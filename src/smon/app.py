@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import ScrollableContainer, Vertical
+from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.widgets import DataTable, Footer, Header, Input, Static, TabbedContent, TabPane
 
 from .modals import OutputModal, ScriptModal
@@ -56,33 +56,37 @@ class SlurmDashboard(App):
         yield self.status
         with TabbedContent():
             with TabPane("Jobs", id="tab_jobs"):
-                with Vertical(id="jobs_pane", classes="pane"):
-                    yield Input(placeholder="/ Search in jobs", id="job_search")
-                    yield DataTable(id="jobs_table")
-                    with ScrollableContainer(id="job_detail_container", classes="detail-container"):
-                        yield Static("Select a job to see details.", id="job_detail", classes="detail")
-            with TabPane("Script", id="tab_script"):
-                with Vertical(id="script_pane", classes="pane"):
-                    yield Static(
-                        "Select a job from the Jobs tab to view its script here.",
-                        id="script_info",
-                    )
-                    yield SyntaxViewer("No script loaded", id="script_viewer", classes="syntax-viewer")
-            with TabPane("Output", id="tab_output"):
-                with Vertical(id="output_pane", classes="pane"):
-                    yield Static(
-                        "Select a job from the Jobs tab to view its output here.",
-                        id="output_info",
-                    )
-                    with Vertical(classes="log-container"):
-                        yield Static("[bold]STDOUT:[/bold]", classes="bar")
-                        yield LogViewer("No stdout available", id="stdout_viewer", classes="log-viewer")
-                        yield Static("[bold]STDERR:[/bold]", classes="bar")
-                        yield LogViewer("No stderr available", id="stderr_viewer", classes="log-viewer")
+                with Horizontal(id="jobs_split", classes="split-container"):
+                    # Left panel: Job list
+                    with Vertical(id="jobs_list_pane", classes="list-pane"):
+                        yield Input(placeholder="/ Search in jobs", id="job_search")
+                        with ScrollableContainer(id="jobs_table_container", classes="table-container"):
+                            yield DataTable(id="jobs_table")
+                    # Right panel: Job details + Script + Output
+                    with Vertical(id="jobs_detail_pane", classes="detail-pane"):
+                        # Job detail section
+                        with ScrollableContainer(id="job_detail_container", classes="detail-section"):
+                            yield Static("Select a job to see details.", id="job_detail")
+                        # Script section
+                        with Vertical(id="script_section", classes="script-section"):
+                            yield Static("[bold cyan]📄 Script[/bold cyan]", classes="section-header")
+                            with ScrollableContainer(classes="script-scroll"):
+                                yield SyntaxViewer("Select a job to view script", id="script_viewer")
+                        # Output section (STDOUT + STDERR side by side)
+                        with Vertical(id="output_section", classes="output-section"):
+                            yield Static("[bold green]📊 Output[/bold green]", classes="section-header")
+                            with Horizontal(classes="output-split"):
+                                with Vertical(classes="output-half"):
+                                    yield Static("[dim]STDOUT[/dim]", classes="output-label")
+                                    yield LogViewer("No stdout", id="stdout_viewer", classes="output-viewer")
+                                with Vertical(classes="output-half"):
+                                    yield Static("[dim]STDERR[/dim]", classes="output-label")
+                                    yield LogViewer("No stderr", id="stderr_viewer", classes="output-viewer")
             with TabPane("Nodes", id="tab_nodes"):
                 with Vertical(id="nodes_pane", classes="pane"):
                     yield Input(placeholder="/ Search in nodes", id="node_search")
-                    yield DataTable(id="nodes_table")
+                    with ScrollableContainer(id="nodes_table_container", classes="table-container"):
+                        yield DataTable(id="nodes_table")
         yield Footer()
 
     async def on_mount(self) -> None:
@@ -216,9 +220,6 @@ class SlurmDashboard(App):
         stdout, stderr = await self.client.get_job_output(str(jobid))
 
         refresh_time = datetime.datetime.now().strftime("%H:%M:%S")
-        self.query_one("#output_info", Static).update(
-            f"[bold]Output for Job {jobid}[/bold] (Refreshed: {refresh_time})"
-        )
         self.query_one("#stdout_viewer", LogViewer).set_content(stdout or "No stdout available")
         self.query_one("#stderr_viewer", LogViewer).set_content(stderr or "No stderr available")
         self.status.message = f"Output refreshed for job {jobid} at {refresh_time}"
@@ -278,22 +279,16 @@ class SlurmDashboard(App):
         self.status.message = f"⚠️ Real-time refresh: {toggle_state} ({reason})"
 
     def _update_output_info_realtime_status(self) -> None:
-        """Update the output info panel with real-time status."""
+        """Update status bar with real-time refresh status."""
         if not self.current_jobid:
             return
-        try:
-            output_info = self.query_one("#output_info", Static)
-            if self.user_wants_realtime and self.output_refresh_enabled:
-                refresh_status = " 🔄 (Real-time ON)"
-            elif self.user_wants_realtime:
-                refresh_status = " ⏸️ (Real-time ON, but job not active)"
-            else:
-                refresh_status = " ⏹️ (Real-time OFF)"
-            output_info.update(
-                f"[bold]Output for Job {self.current_jobid}[/bold] (Press 'o' to refresh){refresh_status}"
-            )
-        except Exception:
-            pass
+        if self.user_wants_realtime and self.output_refresh_enabled:
+            refresh_status = "🔄 Real-time ON"
+        elif self.user_wants_realtime:
+            refresh_status = "⏸️ Real-time ON (job not active)"
+        else:
+            refresh_status = "⏹️ Real-time OFF"
+        self.status.message = f"Job {self.current_jobid} | {refresh_status}"
 
     def action_debug_test(self) -> None:
         """Debug action to test keybindings."""
@@ -439,9 +434,6 @@ class SlurmDashboard(App):
             self.query_one("#job_detail", Static).update(f"[b]Job {jobid}[/b]\n{detail}")
 
             script_text = await self.client.get_job_script(str(jobid))
-            self.query_one("#script_info", Static).update(
-                f"[bold]Script for Job {jobid}[/bold] (Press 's' to view in old panel)"
-            )
             self.query_one("#script_viewer", SyntaxViewer).set_code(script_text, "bash")
 
             stdout, stderr = await self.client.get_job_output(str(jobid))
@@ -452,20 +444,14 @@ class SlurmDashboard(App):
 
     def _update_output_display(self, jobid: str, stdout: str, stderr: str, can_refresh: bool) -> None:
         """Update output display panels."""
-        if self.user_wants_realtime and self.output_refresh_enabled:
-            refresh_status = " (Real-time refresh ON)"
-        elif self.user_wants_realtime and can_refresh:
-            refresh_status = " (Real-time refresh ON)"
-        elif self.user_wants_realtime:
-            refresh_status = " (Real-time refresh ON, but job not active)"
-        else:
-            refresh_status = " (Real-time refresh OFF - press 't' to enable)"
-
-        self.query_one("#output_info", Static).update(
-            f"[bold]Output for Job {jobid}[/bold] (Press 'o' to refresh){refresh_status}"
-        )
         self.query_one("#stdout_viewer", LogViewer).set_content(stdout or "No stdout available")
         self.query_one("#stderr_viewer", LogViewer).set_content(stderr or "No stderr available")
+
+        # Update status with refresh info
+        if self.user_wants_realtime and can_refresh:
+            self.status.message = f"Job {jobid} selected | 🔄 Real-time ON"
+        else:
+            self.status.message = f"Job {jobid} selected | Press 't' to enable real-time"
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle search input submission."""
