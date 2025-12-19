@@ -1,7 +1,7 @@
 [project]
 name = "smon"
 version = "0.1.0"
-description = "Add your description here"
+description = "A terminal user interface (TUI) for monitoring Slurm clusters"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
