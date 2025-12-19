@@ -1,14 +1,15 @@
 """CSS styles for smon dashboard."""
 
 APP_CSS = """
-Screen { layout: vertical; }
+Screen { layout: vertical; overflow: hidden; }
 .bar { height: 1; }
-.pane { height: 1fr; }
+.pane { height: 1fr; overflow: hidden; }
 
 /* Split View Layout */
 .split-container {
     height: 1fr;
     width: 100%;
+    overflow: hidden;
 }
 
 .list-pane {
@@ -16,12 +17,14 @@ Screen { layout: vertical; }
     min-width: 40;
     height: 100%;
     border-right: solid $primary;
+    overflow: hidden;
 }
 
 .detail-pane {
     width: 55%;
     height: 100%;
     padding-left: 1;
+    overflow: hidden;
 }
 
 .table-container {
@@ -33,14 +36,14 @@ Screen { layout: vertical; }
 
 /* Detail sections in right pane */
 .detail-section {
-    height: 6;
+    height: 10;
     border: round $surface;
     padding: 0 1;
     overflow-y: auto;
 }
 
 .script-section {
-    height: 12;
+    height: 1fr;
     margin-top: 1;
 }
 
@@ -57,7 +60,7 @@ Screen { layout: vertical; }
 }
 
 .output-section {
-    height: 1fr;
+    height: 12;
     margin-top: 1;
 }
 
