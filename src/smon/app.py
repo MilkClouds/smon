@@ -198,12 +198,12 @@ class SlurmDashboard(App):
             return
         jobid = row[0]
 
-        self.status.message = f"Loading output for job {jobid}..."
-        stdout, stderr = await self.client.get_job_output(str(jobid))
+        self.status.message = f"Loading full output for job {jobid}..."
+        stdout, stderr = await self.client.get_job_output(str(jobid), full=True)
 
         modal = OutputModal(str(jobid), stdout, stderr, self.client)
         self.push_screen(modal)
-        self.status.message = f"Output modal opened for job {jobid} (Press Escape to close, 'r' to refresh)"
+        self.status.message = f"Output modal opened for job {jobid} (Esc to close, 'r' to refresh)"
 
     async def action_refresh_output(self) -> None:
         """Refresh the output in the existing Output tab."""

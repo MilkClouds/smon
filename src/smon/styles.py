@@ -151,14 +151,18 @@ OutputModal {
     margin-top: 1;
 }
 
-.output-log-viewer {
+.output-scroll-container {
     height: 1fr;
-    background: $surface;
-    border: solid $primary;
-    margin-bottom: 1;
-    padding: 1;
-    overflow: auto;
+    overflow-y: auto;
     scrollbar-background: $panel;
     scrollbar-color: $success;
+    border: solid $primary;
+    margin-bottom: 1;
+}
+
+.output-log-viewer {
+    height: auto;
+    background: $surface;
+    padding: 1;
 }
 """

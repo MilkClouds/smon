@@ -163,8 +163,13 @@ class SlurmClient:
             return out.rstrip()
         return "(No script stored by controller)"
 
-    async def get_job_output(self, jobid: str) -> Tuple[str, str]:
-        """Get stdout and stderr for a job."""
+    async def get_job_output(self, jobid: str, full: bool = False) -> Tuple[str, str]:
+        """Get stdout and stderr for a job.
+
+        Args:
+            jobid: The job ID to get output for.
+            full: If True, get more lines (100). If False, get preview (20 lines).
+        """
         if not which("scontrol"):
             return "Mock stdout output for testing", "Mock stderr output for testing"
 
@@ -178,16 +183,22 @@ class SlurmClient:
             elif "StdErr=" in line:
                 stderr_file = line.split("StdErr=")[1].split()[0]
 
-        stdout_content = await self._read_output_file(stdout_file)
-        stderr_content = await self._read_output_file(stderr_file)
+        lines = 100 if full else 20
+        stdout_content = await self._read_output_file(stdout_file, lines)
+        stderr_content = await self._read_output_file(stderr_file, lines)
         return stdout_content, stderr_content
 
-    async def _read_output_file(self, filepath: str) -> str:
-        """Read content from an output file."""
+    async def _read_output_file(self, filepath: str, lines: int = 20) -> str:
+        """Read content from an output file.
+
+        Args:
+            filepath: Path to the output file.
+            lines: Number of lines to read from the end.
+        """
         if not filepath or filepath == "/dev/null":
             return ""
         try:
-            rc, out, err = await run_cmd(f"tail -n 100 {shlex.quote(filepath)}", timeout=5)
+            rc, out, err = await run_cmd(f"tail -n {lines} {shlex.quote(filepath)}", timeout=5)
             if rc == 0:
                 return out
             return f"Could not read file: {err}"
