@@ -23,18 +23,34 @@ class SyntaxViewer(Static):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.console = Console()
+        self._code: str = ""
+        self._language: str = "bash"
 
     def set_code(self, code: str, language: str = "bash") -> None:
         """Set the code content with syntax highlighting."""
-        if not code.strip():
+        self._code = code
+        self._language = language
+        self._render_code()
+
+    def _render_code(self) -> None:
+        """Render the code with current theme."""
+        if not self._code.strip():
             self.update("No content to display")
             return
 
         try:
-            syntax = Syntax(code, language, theme="monokai", line_numbers=True)
+            # Use theme based on app's dark mode
+            is_dark = self.app.theme == "textual-dark" if hasattr(self.app, "theme") else True
+            theme = "monokai" if is_dark else "github-light"
+            syntax = Syntax(self._code, self._language, theme=theme, line_numbers=True)
             self.update(syntax)
         except Exception:
-            self.update(f"```{language}\n{code}\n```")
+            self.update(f"```{self._language}\n{self._code}\n```")
+
+    def on_app_theme_changed(self) -> None:
+        """Re-render when theme changes."""
+        if self._code:
+            self._render_code()
 
 
 class LogViewer(Static):
@@ -85,11 +101,7 @@ class Filter:
         """Apply filter to jobs list."""
         res = rows
         if self.user:
-            res = [
-                r
-                for r in res
-                if (r.get("USERNAME", "") or r.get("USER", "")).lower() == self.user.lower()
-            ]
+            res = [r for r in res if (r.get("USERNAME", "") or r.get("USER", "")).lower() == self.user.lower()]
         if self.partition:
             res = [r for r in res if self.partition.lower() in r.get("PARTITION", "").lower()]
         if self.state:
@@ -110,4 +122,3 @@ class Filter:
             pat = self.text.lower()
             res = [r for r in res if any(pat in str(v).lower() for v in r.values())]
         return res
-

@@ -13,15 +13,30 @@ Screen { layout: vertical; overflow: hidden; }
 }
 
 .list-pane {
-    width: 45%;
-    min-width: 40;
+    width: 55%;
+    min-width: 60;
     height: 100%;
     border-right: solid $primary;
     overflow: hidden;
 }
 
+/* Filter bar */
+.filter-bar {
+    height: 3;
+    padding: 0 1;
+}
+
+.search-input {
+    width: 1fr;
+}
+
+.state-select {
+    width: 20;
+    margin-left: 1;
+}
+
 .detail-pane {
-    width: 55%;
+    width: 45%;
     height: 100%;
     padding-left: 1;
     overflow: hidden;
@@ -43,7 +58,7 @@ Screen { layout: vertical; overflow: hidden; }
 }
 
 .script-section {
-    height: 1fr;
+    height: 2fr;
     margin-top: 1;
 }
 
@@ -60,7 +75,8 @@ Screen { layout: vertical; overflow: hidden; }
 }
 
 .output-section {
-    height: 12;
+    height: 1fr;
+    min-height: 8;
     margin-top: 1;
 }
 

@@ -122,10 +122,11 @@ class SlurmClient:
         if not which("sinfo"):
             return self._mock_nodes()
 
-        cols_primary = ["NODE", "PARTITION", "STATE", "AVAIL", "CPUS", "MEM", "S:C:T", "GRES"]
-        cols_fallback = ["NODE", "PARTITION", "STATE", "AVAIL", "CPUS", "MEM", "GRES"]
-        cmd_primary = f"{self.cmds.sinfo} -N -h -o '%N|%P|%t|%a|%c|%m|%O|%G'"
-        cmd_fallback = f"{self.cmds.sinfo} -N -h -o '%N|%P|%t|%a|%c|%m|%G'"
+        # Include GRES_USED to show GPU usage
+        cols_primary = ["NODE", "PARTITION", "STATE", "AVAIL", "CPUS", "MEM", "S:C:T", "GRES", "GRES_USED"]
+        cols_fallback = ["NODE", "PARTITION", "STATE", "AVAIL", "CPUS", "MEM", "GRES", "GRES_USED"]
+        cmd_primary = f"{self.cmds.sinfo} -N -h -o '%N|%P|%t|%a|%c|%m|%O|%G|%b'"
+        cmd_fallback = f"{self.cmds.sinfo} -N -h -o '%N|%P|%t|%a|%c|%m|%G|%b'"
 
         rc, out, err = await run_cmd(cmd_primary, timeout=10)
         cols = cols_primary
@@ -163,17 +164,20 @@ class SlurmClient:
             return out.rstrip()
         return "(No script stored by controller)"
 
-    async def get_job_output(self, jobid: str, full: bool = False) -> Tuple[str, str]:
+    async def get_job_output(self, jobid: str, full: bool = False, detail: Optional[str] = None) -> Tuple[str, str]:
         """Get stdout and stderr for a job.
 
         Args:
             jobid: The job ID to get output for.
             full: If True, get more lines (100). If False, get preview (20 lines).
+            detail: Pre-fetched job detail string to avoid duplicate scontrol call.
         """
         if not which("scontrol"):
             return "Mock stdout output for testing", "Mock stderr output for testing"
 
-        detail = await self.get_job_detail(jobid)
+        if detail is None:
+            detail = await self.get_job_detail(jobid)
+
         stdout_file = ""
         stderr_file = ""
 
@@ -184,8 +188,11 @@ class SlurmClient:
                 stderr_file = line.split("StdErr=")[1].split()[0]
 
         lines = 100 if full else 20
-        stdout_content = await self._read_output_file(stdout_file, lines)
-        stderr_content = await self._read_output_file(stderr_file, lines)
+        # Read both files in parallel
+        stdout_content, stderr_content = await asyncio.gather(
+            self._read_output_file(stdout_file, lines),
+            self._read_output_file(stderr_file, lines),
+        )
         return stdout_content, stderr_content
 
     async def _read_output_file(self, filepath: str, lines: int = 20) -> str:
@@ -366,3 +373,64 @@ class SlurmClient:
                 "GRES": "gpu:h100:8",
             }
         ]
+
+    @staticmethod
+    def parse_time_to_seconds(time_str: str) -> int:
+        """Parse Slurm time format to seconds.
+
+        Formats: MM:SS, HH:MM:SS, D-HH:MM:SS, UNLIMITED, etc.
+        """
+        if not time_str or time_str in ("UNLIMITED", "INVALID", "Partition_Limit"):
+            return -1
+
+        try:
+            days = 0
+            if "-" in time_str:
+                day_part, time_part = time_str.split("-", 1)
+                days = int(day_part)
+            else:
+                time_part = time_str
+
+            parts = time_part.split(":")
+            if len(parts) == 3:
+                hours, minutes, seconds = map(int, parts)
+            elif len(parts) == 2:
+                hours = 0
+                minutes, seconds = map(int, parts)
+            else:
+                return -1
+
+            return days * 86400 + hours * 3600 + minutes * 60 + seconds
+        except (ValueError, AttributeError):
+            return -1
+
+    @staticmethod
+    def calculate_time_ratio(time_used: str, time_limit: str) -> float:
+        """Calculate the ratio of time used to time limit.
+
+        Returns -1 if unable to calculate (e.g., UNLIMITED limit).
+        """
+        used_sec = SlurmClient.parse_time_to_seconds(time_used)
+        limit_sec = SlurmClient.parse_time_to_seconds(time_limit)
+
+        if used_sec < 0 or limit_sec <= 0:
+            return -1.0
+
+        return used_sec / limit_sec
+
+    async def cancel_job(self, jobid: str) -> Tuple[bool, str]:
+        """Cancel a job using scancel.
+
+        Returns:
+            Tuple of (success, message)
+        """
+        if not which("scancel"):
+            return False, "scancel command not found"
+
+        cmd = f"scancel {shlex.quote(jobid)}"
+        rc, out, err = await run_cmd(cmd, timeout=10)
+
+        if rc == 0:
+            return True, f"Job {jobid} cancelled successfully"
+        else:
+            return False, err.strip() or "Unknown error"

@@ -106,3 +106,37 @@ class TestSlurmClientNodeParsing:
         # When nodelist contains a pending reason keyword, check behavior
         result = slurm_client.combine_nodelist_reason("Resources", "")
         assert result == "Resources"
+
+
+class TestSlurmClientTimeParsing:
+    """Tests for time parsing methods."""
+
+    def test_parse_time_mm_ss(self) -> None:
+        """Test parsing MM:SS format."""
+        assert SlurmClient.parse_time_to_seconds("05:30") == 5 * 60 + 30
+
+    def test_parse_time_hh_mm_ss(self) -> None:
+        """Test parsing HH:MM:SS format."""
+        assert SlurmClient.parse_time_to_seconds("02:30:45") == 2 * 3600 + 30 * 60 + 45
+
+    def test_parse_time_d_hh_mm_ss(self) -> None:
+        """Test parsing D-HH:MM:SS format."""
+        assert SlurmClient.parse_time_to_seconds("1-12:00:00") == 1 * 86400 + 12 * 3600
+
+    def test_parse_time_unlimited(self) -> None:
+        """Test parsing UNLIMITED returns -1."""
+        assert SlurmClient.parse_time_to_seconds("UNLIMITED") == -1
+        assert SlurmClient.parse_time_to_seconds("INVALID") == -1
+
+    def test_parse_time_empty(self) -> None:
+        """Test parsing empty string returns -1."""
+        assert SlurmClient.parse_time_to_seconds("") == -1
+
+    def test_calculate_time_ratio(self) -> None:
+        """Test time ratio calculation."""
+        # 30 minutes of 1 hour = 0.5
+        assert SlurmClient.calculate_time_ratio("30:00", "01:00:00") == pytest.approx(0.5)
+
+    def test_calculate_time_ratio_unlimited(self) -> None:
+        """Test time ratio with unlimited limit returns -1."""
+        assert SlurmClient.calculate_time_ratio("30:00", "UNLIMITED") == -1.0
