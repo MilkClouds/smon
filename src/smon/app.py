@@ -12,7 +12,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.widgets import DataTable, Footer, Header, Input, Select, Static, TabbedContent, TabPane
 
-from .modals import OutputModal, ScriptModal
+from .modals import OutputModal
 from .slurm_client import SlurmClient
 from .styles import APP_CSS
 from .widgets import Filter, LogViewer, StatusBar, SyntaxViewer
@@ -27,10 +27,7 @@ class SlurmDashboard(App):
         Binding("q", "quit", "Quit"),
         Binding("r", "refresh", "Refresh"),
         Binding("/", "focus_search", "Search"),
-        Binding("f", "filter_dialog", "Filter"),
-        Binding("s", "show_script", "Script Modal"),
         Binding("o", "show_output", "Output Modal"),
-        Binding("ctrl+r", "refresh_output", "Refresh Output"),
         Binding("t", "toggle_realtime", "Real-time"),
         Binding("1", "goto_jobs", "Jobs", key_display="1"),
         Binding("2", "goto_nodes", "Nodes", key_display="2"),
@@ -38,8 +35,7 @@ class SlurmDashboard(App):
         Binding("y", "copy_jobid", "Copy ID"),
         Binding("plus", "increase_refresh", "+Refresh", show=False),
         Binding("minus", "decrease_refresh", "-Refresh", show=False),
-        Binding("T", "toggle_theme", "Theme", show=True),
-        Binding("d", "debug_test", "Debug Test", show=False),
+        Binding("T", "toggle_theme", "Theme"),
     ]
 
     # State color mappings
@@ -228,46 +224,6 @@ class SlurmDashboard(App):
         except Exception as e:
             self.status.message = f"Search focus error: {e}"
 
-    async def action_filter_dialog(self) -> None:
-        """Show filter status and provide quick filter options."""
-        focused_widget = self.focused
-        widget_info = f"{type(focused_widget).__name__}" if focused_widget else "None"
-
-        filter_info = []
-        if self.filter.user:
-            filter_info.append(f"User: {self.filter.user}")
-        if self.filter.partition:
-            filter_info.append(f"Partition: {self.filter.partition}")
-        if self.filter.state:
-            filter_info.append(f"State: {self.filter.state}")
-        if self.filter.text:
-            filter_info.append(f"Text: {self.filter.text}")
-
-        if filter_info:
-            self.status.message = f"🔍 Active filters: {', '.join(filter_info)} (Focus: {widget_info})"
-        else:
-            self.status.message = f"🔍 No active filters. Use search '/' to filter (Focus: {widget_info})"
-
-        await self.refresh_data()
-
-    async def action_show_script(self) -> None:
-        """Open script in a modal window."""
-        table: DataTable = self.query_one("#jobs_table", DataTable)
-        if not table.row_count or table.cursor_coordinate is None:
-            self.status.message = "No job selected"
-            return
-        row = table.get_row_at(table.cursor_coordinate.row)
-        if not row:
-            return
-        jobid = row[0]
-
-        self.status.message = f"Loading script for job {jobid}..."
-        script_text = await self.client.get_job_script(str(jobid))
-
-        modal = ScriptModal(str(jobid), script_text)
-        self.push_screen(modal)
-        self.status.message = f"Script modal opened for job {jobid} (Press Escape to close)"
-
     async def action_show_output(self) -> None:
         """Open output in a modal window."""
         table: DataTable = self.query_one("#jobs_table", DataTable)
@@ -286,96 +242,15 @@ class SlurmDashboard(App):
         self.push_screen(modal)
         self.status.message = f"Output modal opened for job {jobid} (Esc to close, 'r' to refresh)"
 
-    async def action_refresh_output(self) -> None:
-        """Refresh the output in the existing Output tab."""
-        table: DataTable = self.query_one("#jobs_table", DataTable)
-        if not table.row_count or table.cursor_coordinate is None:
-            self.status.message = "No job selected for output refresh"
-            return
-        row = table.get_row_at(table.cursor_coordinate.row)
-        if not row:
-            return
-        jobid = row[0]
-
-        self.status.message = f"Refreshing output for job {jobid}..."
-        stdout, stderr = await self.client.get_job_output(str(jobid))
-
-        refresh_time = datetime.datetime.now().strftime("%H:%M:%S")
-        self.query_one("#stdout_viewer", LogViewer).set_content(stdout or "No stdout available")
-        self.query_one("#stderr_viewer", LogViewer).set_content(stderr or "No stderr available")
-        self.status.message = f"Output refreshed for job {jobid} at {refresh_time}"
-
     def action_toggle_realtime(self) -> None:
         """Toggle real-time output refresh."""
         self.user_wants_realtime = not self.user_wants_realtime
-        toggle_state = "ON" if self.user_wants_realtime else "OFF"
-        focused_widget = self.focused
-        widget_info = f"{type(focused_widget).__name__}" if focused_widget else "None"
-        self.status.message = f"🔄 Real-time toggle pressed! Setting to: {toggle_state} (Focus: {widget_info})"
-
-        self._update_realtime_state()
-
-    def _update_realtime_state(self) -> None:
-        """Update real-time refresh state based on current job and user preference."""
-        if not self.current_jobid:
-            self.output_refresh_enabled = False
-            self._update_realtime_status_message("no current job")
-            return
-
-        try:
-            table: DataTable = self.query_one("#jobs_table", DataTable)
-            if table.cursor_coordinate is None:
-                self.output_refresh_enabled = False
-                self._update_realtime_status_message("no job selected")
-                return
-
-            row = table.get_row_at(table.cursor_coordinate.row)
-            if not row or len(row) <= 2:
-                self.output_refresh_enabled = False
-                self._update_realtime_status_message("no job data")
-                return
-
-            job_state = row[2]
-            can_refresh = job_state.upper() in ["RUNNING", "PENDING"]
-            self.output_refresh_enabled = self.user_wants_realtime and can_refresh
-
-            if self.user_wants_realtime:
-                if can_refresh:
-                    final_msg = f"✅ Real-time refresh: ON (job is {job_state})"
-                else:
-                    final_msg = f"⚠️ Real-time refresh: ON but job is {job_state} (not active)"
-            else:
-                final_msg = "❌ Real-time refresh: OFF"
-
-            self.status.message = final_msg
-            self._update_output_info_realtime_status()
-
-        except Exception as e:
-            self.output_refresh_enabled = False
-            self.status.message = f"❌ Real-time toggle error: {e}"
-
-    def _update_realtime_status_message(self, reason: str) -> None:
-        """Update status message for real-time state."""
-        toggle_state = "ON" if self.user_wants_realtime else "OFF"
-        self.status.message = f"⚠️ Real-time refresh: {toggle_state} ({reason})"
-
-    def _update_output_info_realtime_status(self) -> None:
-        """Update status bar with real-time refresh status."""
-        if not self.current_jobid:
-            return
-        if self.user_wants_realtime and self.output_refresh_enabled:
-            refresh_status = "🔄 Real-time ON"
-        elif self.user_wants_realtime:
-            refresh_status = "⏸️ Real-time ON (job not active)"
+        if self.user_wants_realtime:
+            self.output_refresh_enabled = self.current_jobid is not None
+            self.status.message = "🔄 Real-time refresh: ON"
         else:
-            refresh_status = "⏹️ Real-time OFF"
-        self.status.message = f"Job {self.current_jobid} | {refresh_status}"
-
-    def action_debug_test(self) -> None:
-        """Debug action to test keybindings."""
-        focused_widget = self.focused
-        widget_info = f"{type(focused_widget).__name__}" if focused_widget else "None"
-        self.status.message = f"🐛 DEBUG: Keybinding works! Focused widget: {widget_info}"
+            self.output_refresh_enabled = False
+            self.status.message = "⏹️ Real-time refresh: OFF"
 
     def action_goto_jobs(self) -> None:
         """Switch to Jobs tab."""
@@ -775,8 +650,8 @@ class SlurmDashboard(App):
             return
 
         column_key = event.column_key
-        # column_key is the key we set when adding columns (e.g., "JOBID")
-        column_name = str(column_key)
+        # Extract actual column name from ColumnKey object
+        column_name = column_key.value if hasattr(column_key, "value") else str(column_key)
 
         # Toggle sort direction if same column
         if self._sort_column == column_name:
@@ -785,14 +660,13 @@ class SlurmDashboard(App):
             self._sort_column = column_name
             self._sort_reverse = False
 
-        # Sort the table with custom key function
+        # Sort the table
         table = event.data_table
         try:
             table.sort(column_key, key=self._sort_key, reverse=self._sort_reverse)
-            # Update column headers to show sort indicator
             self._update_column_headers(table)
-            direction = "▼" if self._sort_reverse else "▲"
-            self.status.message = f"Sorted by {column_name} {direction}"
+            arrow = "▼" if self._sort_reverse else "▲"
+            self.status.message = f"Sorted by {column_name} {arrow}"
         except Exception as e:
             self.status.message = f"Sort error: {e}"
 
@@ -800,7 +674,10 @@ class SlurmDashboard(App):
         """Update column headers to reflect current sort state."""
         for col_key in table.columns:
             col = table.columns[col_key]
-            base_name = str(col_key)
+            # Extract actual column name from ColumnKey object
+            base_name = col_key.value if hasattr(col_key, "value") else str(col_key)
+            if base_name is None:
+                continue
             if self._sort_column == base_name:
                 arrow = "▼" if self._sort_reverse else "▲"
                 col.label = Text(f"{base_name} {arrow}")
