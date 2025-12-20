@@ -1,4 +1,11 @@
-"""Modal screens for smon dashboard."""
+"""Modal screens for smon dashboard.
+
+Note: These modals are currently not used in the main application.
+- ScriptModal: Script is now displayed inline in the split view.
+- OutputModal: Output is now viewed via external pager (bat/less) with 'o' key.
+
+These classes are kept for potential future use or as reference.
+"""
 
 import datetime
 from typing import TYPE_CHECKING

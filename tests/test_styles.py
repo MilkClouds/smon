@@ -19,8 +19,9 @@ class TestStyles:
             ".bar",
             ".pane",
             "Screen",
-            "ScriptModal",
-            "OutputModal",
+            ".split-container",
+            ".list-pane",
+            ".detail-pane",
         ]
         for selector in essential_selectors:
             assert selector in APP_CSS, f"Missing selector: {selector}"

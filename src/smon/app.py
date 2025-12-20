@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import datetime
 import os
+import re
 import shutil
 import subprocess
 from typing import Any, Dict, List, Optional
@@ -517,6 +518,9 @@ class SlurmDashboard(App):
                 elif table.cursor_coordinate is None:
                     table.move_cursor(row=0)
 
+    # Regex for parsing GPU GRES strings
+    _GPU_GRES_PATTERN = re.compile(r"\((?:IDX|S):[^)]*\)")
+
     def _parse_gpu_count(self, gres_str: str) -> int:
         """Parse GPU count from GRES string. Handles formats like:
         - gpu:h100:8
@@ -528,9 +532,7 @@ class SlurmDashboard(App):
             return 0
         try:
             # Remove trailing (IDX:...) or (S:...) but keep (null)
-            import re
-
-            clean = re.sub(r"\((?:IDX|S):[^)]*\)", "", gres_str)
+            clean = self._GPU_GRES_PATTERN.sub("", gres_str)
             parts = clean.split(":")
             # Find the last numeric part
             for part in reversed(parts):
@@ -612,8 +614,13 @@ class SlurmDashboard(App):
         self.query_one("#stdout_viewer", LogViewer).set_content("Loading...")
         self.query_one("#stderr_viewer", LogViewer).set_content("Loading...")
 
-        # Load data asynchronously - create task to avoid blocking
-        asyncio.create_task(self._load_job_details(jobid, can_refresh))
+        # Load data asynchronously - use worker to handle exceptions properly
+        self.run_worker(
+            self._load_job_details(jobid, can_refresh),
+            group="job_details",
+            exclusive=True,
+            exit_on_error=False,
+        )
 
     async def _load_job_details(self, jobid: str, can_refresh: bool) -> None:
         """Load job details, script, and output asynchronously."""

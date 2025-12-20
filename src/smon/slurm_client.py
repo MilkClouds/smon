@@ -442,9 +442,8 @@ class SlurmClient:
             return False, "scancel command not found"
 
         cmd = f"scancel {shlex.quote(jobid)}"
-        rc, out, err = await run_cmd(cmd, timeout=10)
+        rc, _out, err = await run_cmd(cmd, timeout=10)
 
         if rc == 0:
             return True, f"Job {jobid} cancelled successfully"
-        else:
-            return False, err.strip() or "Unknown error"
+        return False, err.strip() or "Unknown error"
