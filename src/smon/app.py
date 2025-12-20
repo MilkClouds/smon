@@ -676,7 +676,7 @@ class SlurmDashboard(App):
 
         if col in _INT_COLUMNS:
             try:
-                return (0, -int(text))
+                return (0, int(text))
             except ValueError:
                 return (1, text.lower())
 
@@ -687,7 +687,7 @@ class SlurmDashboard(App):
                 try:
                     num = float(num_str)
                     mult = _MEM_UNITS.get(unit.upper(), 1) if unit else 1
-                    return (0, -int(num * mult))
+                    return (0, int(num * mult))
                 except ValueError:
                     pass
             return (1, text.lower())
