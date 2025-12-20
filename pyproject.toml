@@ -9,15 +9,24 @@ dependencies = [
     "textual",
 ]
 
-[project.scripts]
-smon = "smon:main"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
 ]
+
+[project.scripts]
+smon = "smon:main"
+
+[tool.ruff]
+line-length = 119
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/smon/_version.py"
