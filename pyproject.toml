@@ -1,6 +1,6 @@
 [project]
 name = "smon"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A terminal user interface (TUI) for monitoring Slurm clusters"
 readme = "README.md"
 requires-python = ">=3.11"
