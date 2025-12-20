@@ -22,7 +22,7 @@ smon = "smon:main"
 line-length = 119
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
