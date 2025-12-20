@@ -496,13 +496,16 @@ class SlurmDashboard(App):
         """Parse GPU count from GRES string. Handles formats like:
         - gpu:h100:8
         - gpu:8
-        - gpu:h100:4(IDX:0-3)
+        - gpu:8(S:0-1)
+        - gpu:(null):8(IDX:0-7)
         """
         if not gres_str or gres_str in ("(null)", "-", "N/A"):
             return 0
         try:
-            # Remove parenthetical info like (IDX:0-3)
-            clean = gres_str.split("(")[0]
+            # Remove trailing (IDX:...) or (S:...) but keep (null)
+            import re
+
+            clean = re.sub(r"\((?:IDX|S):[^)]*\)", "", gres_str)
             parts = clean.split(":")
             # Find the last numeric part
             for part in reversed(parts):
@@ -524,14 +527,6 @@ class SlurmDashboard(App):
         if total == 0:
             return Text(gpu_info)
 
-        # If GRES_USED is not available (null), show total only with all green
-        if gres_used in ("(null)", "", "-", "N/A") or used == 0:
-            bar = "░" * total
-            text = Text()
-            text.append(bar, style="green")
-            text.append(f" {total}", style="cyan")
-            return text
-
         # Ensure used doesn't exceed total
         used = min(used, total)
         avail = total - used
@@ -540,8 +535,10 @@ class SlurmDashboard(App):
         bar_used = "█" * used
         bar_avail = "░" * avail
         text = Text()
-        text.append(bar_used, style="red")
-        text.append(bar_avail, style="green")
+        if used > 0:
+            text.append(bar_used, style="dark_orange")
+        if avail > 0:
+            text.append(bar_avail, style="grey50")
         text.append(f" {used}/{total}", style="cyan")
         return text
 
@@ -590,13 +587,8 @@ class SlurmDashboard(App):
         self.query_one("#stdout_viewer", LogViewer).set_content("Loading...")
         self.query_one("#stderr_viewer", LogViewer).set_content("Loading...")
 
-        # Load data asynchronously using worker (exclusive to cancel previous loads)
-        self.run_worker(
-            self._load_job_details(jobid, can_refresh),
-            group="job_details",
-            exclusive=True,
-            exit_on_error=False,
-        )
+        # Load data asynchronously - create task to avoid blocking
+        asyncio.create_task(self._load_job_details(jobid, can_refresh))
 
     async def _load_job_details(self, jobid: str, can_refresh: bool) -> None:
         """Load job details, script, and output asynchronously."""

@@ -1,5 +1,6 @@
 """Slurm client for interacting with Slurm commands."""
 
+import asyncio
 import re
 import shlex
 from dataclasses import dataclass
@@ -122,26 +123,23 @@ class SlurmClient:
         if not which("sinfo"):
             return self._mock_nodes()
 
-        # Include GRES_USED to show GPU usage
-        cols_primary = ["NODE", "PARTITION", "STATE", "AVAIL", "CPUS", "MEM", "S:C:T", "GRES", "GRES_USED"]
-        cols_fallback = ["NODE", "PARTITION", "STATE", "AVAIL", "CPUS", "MEM", "GRES", "GRES_USED"]
-        cmd_primary = f"{self.cmds.sinfo} -N -h -o '%N|%P|%t|%a|%c|%m|%O|%G|%b'"
-        cmd_fallback = f"{self.cmds.sinfo} -N -h -o '%N|%P|%t|%a|%c|%m|%G|%b'"
+        # Use -O (long format) for GresUsed which works better than %b
+        cols = ["NODE", "PARTITION", "STATE", "AVAIL", "CPUS", "MEM", "GRES", "GRES_USED"]
+        cmd = (
+            f"{self.cmds.sinfo} -N -h -O "
+            "'NodeList:|,Partition:|,StateLong:|,Available:|,CPUs:|,Memory:|,Gres:|,GresUsed:|'"
+        )
 
-        rc, out, err = await run_cmd(cmd_primary, timeout=10)
-        cols = cols_primary
-        if rc != 0:
-            rc, out, err = await run_cmd(cmd_fallback, timeout=10)
-            cols = cols_fallback
+        rc, out, err = await run_cmd(cmd, timeout=10)
         if rc != 0:
             raise RuntimeError(f"sinfo failed: {err.strip() or 'unknown error'}")
 
         nodes: List[Dict[str, Any]] = []
         for line in out.splitlines():
             parts = [p.strip() for p in line.split("|")]
-            if len(parts) != len(cols):
+            if len(parts) < len(cols):
                 continue
-            nodes.append(dict(zip(cols, parts)))
+            nodes.append(dict(zip(cols, parts[: len(cols)])))
         return nodes
 
     async def get_job_detail(self, jobid: str) -> str:
