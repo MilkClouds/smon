@@ -19,6 +19,12 @@ from .slurm_client import SlurmClient
 from .styles import APP_CSS
 from .widgets import Filter, LogViewer, StatusBar, SyntaxViewer
 
+# Sorting constants
+_MEM_UNITS = {"K": 1, "M": 1024, "G": 1024**2, "T": 1024**3}
+_MEM_PATTERN = re.compile(r"^(\d+(?:\.\d+)?)\s*([KMGT])?", re.IGNORECASE)
+_INT_COLUMNS = frozenset({"GPUs", "CPUS", "Nodes"})
+_MEM_COLUMNS = frozenset({"MEM"})
+
 
 class SlurmDashboard(App):
     """Slurm Dashboard application for monitoring jobs and nodes."""
@@ -662,11 +668,31 @@ class SlurmDashboard(App):
         else:
             self.status.message = f"Job {jobid} selected | Press 't' to enable real-time"
 
-    def _sort_key(self, value: Any) -> str:
-        """Extract sortable string from a cell value (handles Rich Text)."""
-        if hasattr(value, "plain"):
-            return value.plain.lower()
-        return str(value).lower()
+    def _sort_key(self, value: Any) -> tuple:
+        """Sort key function that uses self._sort_column to determine sort type."""
+        text = value.plain if hasattr(value, "plain") else str(value)
+        text = text.strip()
+        col = self._sort_column
+
+        if col in _INT_COLUMNS:
+            try:
+                return (0, int(text))
+            except ValueError:
+                return (1, text.lower())
+
+        if col in _MEM_COLUMNS:
+            match = _MEM_PATTERN.match(text)
+            if match:
+                num_str, unit = match.groups()
+                try:
+                    num = float(num_str)
+                    mult = _MEM_UNITS.get(unit.upper(), 1) if unit else 1
+                    return (0, int(num * mult))
+                except ValueError:
+                    pass
+            return (1, text.lower())
+
+        return (0, text.lower())
 
     def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
         """Handle header click for sorting."""
@@ -675,7 +701,10 @@ class SlurmDashboard(App):
 
         column_key = event.column_key
         # Extract actual column name from ColumnKey object
-        column_name = column_key.value if hasattr(column_key, "value") else str(column_key)
+        raw_name = column_key.value if hasattr(column_key, "value") else str(column_key)
+        if not raw_name:
+            return
+        column_name: str = raw_name
 
         # Toggle sort direction if same column
         if self._sort_column == column_name:
