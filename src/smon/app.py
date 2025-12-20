@@ -3,6 +3,8 @@
 import asyncio
 import contextlib
 import datetime
+import os
+import shutil
 import subprocess
 from typing import Any, Dict, List, Optional
 
@@ -12,7 +14,6 @@ from textual.binding import Binding
 from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.widgets import DataTable, Footer, Header, Input, Select, Static, TabbedContent, TabPane
 
-from .modals import OutputModal
 from .slurm_client import SlurmClient
 from .styles import APP_CSS
 from .widgets import Filter, LogViewer, StatusBar, SyntaxViewer
@@ -225,7 +226,7 @@ class SlurmDashboard(App):
             self.status.message = f"Search focus error: {e}"
 
     async def action_show_output(self) -> None:
-        """Open output in a modal window."""
+        """Open output files in external pager (bat/less)."""
         table: DataTable = self.query_one("#jobs_table", DataTable)
         if not table.row_count or table.cursor_coordinate is None:
             self.status.message = "No job selected"
@@ -233,14 +234,49 @@ class SlurmDashboard(App):
         row = table.get_row_at(table.cursor_coordinate.row)
         if not row:
             return
-        jobid = row[0]
+        jobid = str(row[0])
 
-        self.status.message = f"Loading full output for job {jobid}..."
-        stdout, stderr = await self.client.get_job_output(str(jobid), full=True)
+        stdout_path, stderr_path = await self.client.get_job_output_paths(jobid)
+        if not stdout_path and not stderr_path:
+            self.status.message = "No output files available"
+            return
 
-        modal = OutputModal(str(jobid), stdout, stderr, self.client)
-        self.push_screen(modal)
-        self.status.message = f"Output modal opened for job {jobid} (Esc to close, 'r' to refresh)"
+        # Find best pager: bat > less > $PAGER > cat
+        pager = self._find_pager()
+        files = [f for f in [stdout_path, stderr_path] if f and os.path.exists(f)]
+
+        if not files:
+            self.status.message = "Output files not found on disk"
+            return
+
+        # Build command based on pager
+        # Use options to: 1) start at end of file, 2) support ANSI colors (tqdm, etc.)
+        if "bat" in pager:
+            # bat: --pager="less -R +G" to start at end and support ANSI
+            cmd = [pager, "--paging=always", "--style=plain", "--pager=less -R +G"] + files
+        else:
+            # less: -R for ANSI colors, +G to start at end
+            cmd = [pager, "-R", "+G"] + files
+
+        self.status.message = f"Opening output with {os.path.basename(pager)}..."
+
+        with self.suspend():
+            subprocess.run(cmd)
+
+        self.status.message = f"Returned from viewing job {jobid} output"
+
+    def _find_pager(self) -> str:
+        """Find the best available pager."""
+        # Try bat first (modern, with syntax highlighting)
+        if shutil.which("bat"):
+            return "bat"
+        if shutil.which("batcat"):  # Debian/Ubuntu name
+            return "batcat"
+        # Try less
+        if shutil.which("less"):
+            return "less"
+        # Use $PAGER or fall back to cat
+        return os.environ.get("PAGER", "cat")
 
     def action_toggle_realtime(self) -> None:
         """Toggle real-time output refresh."""
@@ -302,26 +338,10 @@ class SlurmDashboard(App):
             self.status.message = "Could not get job ID"
             return
 
-        try:
-            # Try using xclip, xsel, or pbcopy
-            jobid_str = str(jobid)
-            for cmd in ["xclip -selection clipboard", "xsel --clipboard --input", "pbcopy"]:
-                try:
-                    process = subprocess.Popen(
-                        cmd.split(),
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                    process.communicate(input=jobid_str.encode())
-                    if process.returncode == 0:
-                        self.status.message = f"📋 Copied job ID: {jobid}"
-                        return
-                except FileNotFoundError:
-                    continue
-            self.status.message = f"📋 Job ID: {jobid} (clipboard not available)"
-        except Exception as e:
-            self.status.message = f"Copy error: {e}"
+        jobid_str = str(jobid)
+        # Use Textual's built-in clipboard support (uses OSC 52 escape sequence)
+        self.copy_to_clipboard(jobid_str)
+        self.status.message = f"📋 Copied job ID: {jobid}"
 
     def action_increase_refresh(self) -> None:
         """Increase refresh interval by 1 second."""

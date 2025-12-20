@@ -162,16 +162,18 @@ class SlurmClient:
             return out.rstrip()
         return "(No script stored by controller)"
 
-    async def get_job_output(self, jobid: str, full: bool = False, detail: Optional[str] = None) -> Tuple[str, str]:
-        """Get stdout and stderr for a job.
+    async def get_job_output_paths(self, jobid: str, detail: Optional[str] = None) -> Tuple[str, str]:
+        """Get stdout and stderr file paths for a job.
 
         Args:
-            jobid: The job ID to get output for.
-            full: If True, get more lines (100). If False, get preview (20 lines).
+            jobid: The job ID to get output paths for.
             detail: Pre-fetched job detail string to avoid duplicate scontrol call.
+
+        Returns:
+            Tuple of (stdout_path, stderr_path).
         """
         if not which("scontrol"):
-            return "Mock stdout output for testing", "Mock stderr output for testing"
+            return "", ""
 
         if detail is None:
             detail = await self.get_job_detail(jobid)
@@ -184,6 +186,20 @@ class SlurmClient:
                 stdout_file = line.split("StdOut=")[1].split()[0]
             elif "StdErr=" in line:
                 stderr_file = line.split("StdErr=")[1].split()[0]
+
+        return stdout_file, stderr_file
+
+    async def get_job_output(self, jobid: str, full: bool = False, detail: Optional[str] = None) -> Tuple[str, str]:
+        """Get stdout and stderr for a job.
+
+        Args:
+            jobid: The job ID to get output for.
+            full: If True, get more lines (100). If False, get preview (20 lines).
+            detail: Pre-fetched job detail string to avoid duplicate scontrol call.
+        """
+        stdout_file, stderr_file = await self.get_job_output_paths(jobid, detail)
+        if not stdout_file and not stderr_file:
+            return "Mock stdout output for testing", "Mock stderr output for testing"
 
         lines = 100 if full else 20
         # Read both files in parallel
