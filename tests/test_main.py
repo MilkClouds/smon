@@ -1,7 +1,5 @@
 """Tests for smon.main module."""
 
-import pytest
-
 from smon.main import parse_args
 
 
@@ -47,4 +45,3 @@ class TestParseArgs:
         assert args.refresh == 2.5
         assert args.user == "alice"
         assert args.partition == "gpu"
-

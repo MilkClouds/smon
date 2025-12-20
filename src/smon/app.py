@@ -711,7 +711,11 @@ class SlurmDashboard(App):
             self._sort_reverse = not self._sort_reverse
         else:
             self._sort_column = column_name
-            self._sort_reverse = False
+            # For numeric columns (INT/MEM), start with descending (largest first)
+            if column_name in _INT_COLUMNS or column_name in _MEM_COLUMNS:
+                self._sort_reverse = True
+            else:
+                self._sort_reverse = False
 
         # Sort the table
         table = event.data_table

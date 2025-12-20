@@ -1,11 +1,8 @@
 """Tests for smon.config module."""
 
-import json
-import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from smon.config import Config
 
@@ -75,4 +72,3 @@ class TestConfig:
             # Should return default values
             assert config.refresh_sec == 5.0
             assert config.theme == "dark"
-

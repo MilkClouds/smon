@@ -1,7 +1,5 @@
 """Tests for smon.styles module."""
 
-import pytest
-
 from smon.styles import APP_CSS
 
 

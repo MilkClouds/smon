@@ -99,4 +99,3 @@ def sample_nodes() -> list[dict]:
             "PARTITION": "cpu",
         },
     ]
-

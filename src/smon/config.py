@@ -2,7 +2,7 @@
 
 import json
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -51,4 +51,3 @@ class Config:
                 json.dump(asdict(self), f, indent=2)
         except IOError:
             pass
-

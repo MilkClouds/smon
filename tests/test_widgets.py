@@ -1,7 +1,5 @@
 """Tests for smon.widgets module."""
 
-import pytest
-
 from smon.widgets import Filter
 
 

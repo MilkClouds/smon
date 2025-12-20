@@ -39,4 +39,3 @@ async def run_cmd(cmd: str, timeout: float = 10.0) -> Tuple[int, str, str]:
             proc.send_signal(signal.SIGINT)
         return 124, "", f"Timeout after {timeout}s for: {cmd}"
     return proc.returncode or 0, stdout.decode(errors="ignore"), stderr.decode(errors="ignore")
-

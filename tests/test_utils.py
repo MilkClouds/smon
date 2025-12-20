@@ -1,7 +1,5 @@
 """Tests for smon.utils module."""
 
-import pytest
-
 from smon.utils import which
 
 
@@ -24,4 +22,3 @@ class TestWhich:
         """Test that which can find python."""
         result = which("python") or which("python3")
         assert result is not None
-
