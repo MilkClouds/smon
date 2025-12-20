@@ -16,6 +16,7 @@ A terminal user interface (TUI) for monitoring Slurm clusters. Built with [Textu
 - Search and filtering
 - Tabbed TUI interface
 - Keyboard shortcuts
+- [gpustat-web](https://github.com/wookayin/gpustat-web) integration for real-time GPU monitoring
 
 ## Installation
 
@@ -52,6 +53,7 @@ smon --help                    # Show help
 smon --refresh 10              # Set refresh interval to 10 seconds
 smon --user alice              # Filter jobs by user
 smon --partition gpu           # Filter jobs by partition
+smon --gpustat-web URL         # Enable gpustat-web integration
 ```
 
 ## Keyboard Shortcuts
@@ -87,6 +89,29 @@ smon --partition gpu           # Filter jobs by partition
 ### Nodes Tab
 - Node status and availability
 - GPU/CPU/memory per node
+- gpustat-web integration (side-by-side view)
+
+## gpustat-web Integration
+
+smon can display real-time GPU status from [gpustat-web](https://github.com/wookayin/gpustat-web) alongside the Slurm node information.
+
+### Setup
+
+1. Make sure gpustat-web is running on your cluster (e.g., `http://10.50.0.111:48109/`)
+
+2. Run smon with the `--gpustat-web` option:
+   ```sh
+   smon --gpustat-web http://10.50.0.111:48109/
+   ```
+
+3. Or add to config file (`~/.config/smon/config.json`):
+   ```json
+   {
+     "gpustat_web_url": "http://10.50.0.111:48109/"
+   }
+   ```
+
+The Nodes tab will show the Slurm node table on the left and live GPU status from gpustat-web on the right.
 
 ## Requirements
 
