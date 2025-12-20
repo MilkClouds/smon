@@ -101,4 +101,33 @@ Screen { layout: vertical; overflow: hidden; }
     overflow-y: auto;
 }
 
+/* Nodes tab split layout */
+.nodes-list-pane {
+    width: 45%;
+    min-width: 50;
+    height: 100%;
+    border-right: solid $primary;
+    overflow: hidden;
+}
+
+.gpustat-pane {
+    width: 55%;
+    height: 100%;
+    padding-left: 1;
+    overflow: hidden;
+}
+
+.gpustat-container {
+    height: 1fr;
+    border: solid $accent;
+    padding: 0 1;
+    overflow-y: auto;
+    background: $surface;
+}
+
+#gpustat_viewer {
+    width: 100%;
+    height: auto;
+}
+
 """

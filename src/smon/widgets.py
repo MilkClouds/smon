@@ -88,6 +88,29 @@ class LogViewer(Static):
         self.update("")
 
 
+class GpustatViewer(Static):
+    """Widget for displaying gpustat-web content with auto-refresh."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__("[dim]Connecting to gpustat-web...[/dim]", *args, **kwargs)
+        self._content = "[dim]Connecting to gpustat-web...[/dim]"
+
+    def set_content(self, content: str) -> None:
+        """Set the content from gpustat-web."""
+        self._content = content
+        self.update(content)
+
+    def set_error(self, message: str) -> None:
+        """Set an error message."""
+        self._content = f"[red]{message}[/red]"
+        self.update(self._content)
+
+    def set_disconnected(self) -> None:
+        """Set disconnected state."""
+        self._content = "[dim]gpustat-web not configured[/dim]"
+        self.update(self._content)
+
+
 class Filter:
     """Filter for jobs and nodes data."""
 

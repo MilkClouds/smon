@@ -16,6 +16,7 @@ class Config:
     partition_filter: Optional[str] = None
     state_filter: Optional[str] = None
     theme: str = "dark"
+    gpustat_web_url: Optional[str] = None  # e.g., "http://10.50.0.111:48109/"
 
     @classmethod
     def config_path(cls) -> Path:
@@ -37,6 +38,7 @@ class Config:
                     partition_filter=data.get("partition_filter"),
                     state_filter=data.get("state_filter"),
                     theme=data.get("theme", "dark"),
+                    gpustat_web_url=data.get("gpustat_web_url"),
                 )
             except (json.JSONDecodeError, IOError):
                 pass

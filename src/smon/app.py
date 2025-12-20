@@ -15,9 +15,10 @@ from textual.binding import Binding
 from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.widgets import DataTable, Footer, Header, Input, Select, Static, TabbedContent, TabPane
 
+from .gpustat_client import GpustatClient
 from .slurm_client import SlurmClient
 from .styles import APP_CSS
-from .widgets import Filter, LogViewer, StatusBar, SyntaxViewer
+from .widgets import Filter, GpustatViewer, LogViewer, StatusBar, SyntaxViewer
 
 # Sorting constants
 _MEM_UNITS = {"K": 1, "M": 1024, "G": 1024**2, "T": 1024**3}
@@ -78,6 +79,7 @@ class SlurmDashboard(App):
         refresh_sec: float = 5.0,
         user: Optional[str] = None,
         partition: Optional[str] = None,
+        gpustat_web_url: Optional[str] = None,
     ) -> None:
         super().__init__()
         self.refresh_sec = refresh_sec
@@ -93,6 +95,9 @@ class SlurmDashboard(App):
         self._pending_cancel_jobid: Optional[str] = None
         self._sort_column: Optional[str] = None
         self._sort_reverse: bool = False
+        # gpustat-web integration
+        self.gpustat_web_url = gpustat_web_url
+        self._gpustat_client: Optional[GpustatClient] = None
 
     # State filter options
     STATE_OPTIONS = [
@@ -143,10 +148,17 @@ class SlurmDashboard(App):
                                     yield Static("[dim]STDERR[/dim]", classes="output-label")
                                     yield LogViewer("No stderr", id="stderr_viewer", classes="output-viewer")
             with TabPane("Nodes", id="tab_nodes"):
-                with Vertical(id="nodes_pane", classes="pane"):
-                    yield Input(placeholder="/ Search in nodes", id="node_search")
-                    with ScrollableContainer(id="nodes_table_container", classes="table-container"):
-                        yield DataTable(id="nodes_table")
+                with Horizontal(id="nodes_split", classes="split-container"):
+                    # Left panel: Node list
+                    with Vertical(id="nodes_list_pane", classes="nodes-list-pane"):
+                        yield Input(placeholder="/ Search in nodes", id="node_search")
+                        with ScrollableContainer(id="nodes_table_container", classes="table-container"):
+                            yield DataTable(id="nodes_table")
+                    # Right panel: gpustat-web content
+                    with Vertical(id="gpustat_pane", classes="gpustat-pane"):
+                        yield Static("[bold cyan]🖥️ GPU Status[/bold cyan]", classes="section-header")
+                        with ScrollableContainer(id="gpustat_container", classes="gpustat-container"):
+                            yield GpustatViewer(id="gpustat_viewer")
         yield Footer()
 
     async def on_key(self, event) -> None:
@@ -181,6 +193,36 @@ class SlurmDashboard(App):
         await self.refresh_data()
         self._refresh_timer = self.set_interval(self.refresh_sec, self._schedule_refresh)
         self.set_interval(5.0, self._schedule_output_refresh)  # Output refresh every 5s
+
+        # Start gpustat-web connection if configured
+        await self._start_gpustat_connection()
+
+    async def _start_gpustat_connection(self) -> None:
+        """Start gpustat-web WebSocket connection."""
+        gpustat_viewer = self.query_one("#gpustat_viewer", GpustatViewer)
+
+        if not self.gpustat_web_url:
+            gpustat_viewer.set_disconnected()
+            return
+
+        if not GpustatClient.is_available():
+            gpustat_viewer.set_error("websockets library not installed")
+            return
+
+        self._gpustat_client = GpustatClient(self.gpustat_web_url)
+
+        def on_gpustat_message(content: str) -> None:
+            """Handle gpustat-web message - schedule UI update."""
+            # Use call_later to safely update UI from async context
+            self.call_later(gpustat_viewer.set_content, content)
+
+        # Run WebSocket connection in background worker
+        self.run_worker(
+            self._gpustat_client.connect(on_gpustat_message),
+            group="gpustat",
+            exclusive=True,
+            exit_on_error=False,
+        )
 
     def _schedule_refresh(self) -> None:
         self.run_worker(self.refresh_data(), group="refresh", exclusive=True, exit_on_error=False)

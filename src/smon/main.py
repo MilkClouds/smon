@@ -43,6 +43,7 @@ import os
 from typing import List, Optional
 
 from .app import SlurmDashboard
+from .config import Config
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -52,6 +53,12 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     p.add_argument("--user", type=str, default=None, help="Default user filter")
     p.add_argument("--me", action="store_true", help="Filter jobs for current user (alias for --user $USER)")
     p.add_argument("--partition", "-p", type=str, default=None, help="Default partition filter")
+    p.add_argument(
+        "--gpustat-web",
+        type=str,
+        default=None,
+        help="gpustat-web URL (e.g., http://10.50.0.111:48109/)",
+    )
     return p.parse_args(argv)
 
 
@@ -59,11 +66,22 @@ def main() -> None:
     """Main entry point for smon."""
     args = parse_args()
 
+    # Load config for defaults
+    config = Config.load()
+
     user_filter = args.user
     if args.me:
         user_filter = os.getenv("USER") or os.getenv("USERNAME") or "unknown"
 
-    app = SlurmDashboard(refresh_sec=args.refresh, user=user_filter, partition=args.partition)
+    # Use CLI arg if provided, otherwise fall back to config
+    gpustat_web_url = args.gpustat_web or config.gpustat_web_url
+
+    app = SlurmDashboard(
+        refresh_sec=args.refresh,
+        user=user_filter,
+        partition=args.partition,
+        gpustat_web_url=gpustat_web_url,
+    )
     app.run()
 
 
