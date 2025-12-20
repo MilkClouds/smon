@@ -249,19 +249,24 @@ class SlurmDashboard(App):
             self.status.message = "Output files not found on disk"
             return
 
-        # Build command based on pager
-        # Use options to: 1) start at end of file, 2) support ANSI colors (tqdm, etc.)
+        # Build shell command to:
+        # 1) Remove ^M (carriage return) from tqdm progress bars
+        # 2) Support ANSI colors
+        # 3) Start at end of file
+        files_str = " ".join(f'"{f}"' for f in files)
         if "bat" in pager:
-            # bat: --pager="less -R +G" to start at end and support ANSI
-            cmd = [pager, "--paging=always", "--style=plain", "--pager=less -R +G"] + files
+            # bat with less pager, strip \r
+            shell_cmd = (
+                f"cat {files_str} | sed 's/\\r//g' | {pager} --paging=always --style=plain --pager='less -R +G'"
+            )
         else:
             # less: -R for ANSI colors, +G to start at end
-            cmd = [pager, "-R", "+G"] + files
+            shell_cmd = f"cat {files_str} | sed 's/\\r//g' | {pager} -R +G"
 
         self.status.message = f"Opening output with {os.path.basename(pager)}..."
 
         with self.suspend():
-            subprocess.run(cmd)
+            subprocess.run(shell_cmd, shell=True)
 
         self.status.message = f"Returned from viewing job {jobid} output"
 
