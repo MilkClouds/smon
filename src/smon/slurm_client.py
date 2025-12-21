@@ -123,11 +123,21 @@ class SlurmClient:
         if not which("sinfo"):
             return self._mock_nodes()
 
-        # Use -O (long format) for GresUsed which works better than %b
-        cols = ["NODE", "PARTITION", "STATE", "AVAIL", "CPUS", "MEM", "GRES", "GRES_USED"]
+        # Use -O (long format) for GresUsed, CPUsState, AllocMem
+        cols = [
+            "NODE",
+            "PARTITION",
+            "STATE",
+            "AVAIL",
+            "CPUS_STATE",  # Allocated/Idle/Other/Total format
+            "MEM",
+            "ALLOC_MEM",
+            "GRES",
+            "GRES_USED",
+        ]
         cmd = (
             f"{self.cmds.sinfo} -N -h -O "
-            "'NodeList:|,Partition:|,StateLong:|,Available:|,CPUs:|,Memory:|,Gres:|,GresUsed:|'"
+            "'NodeList:|,Partition:|,StateLong:|,Available:|,CPUsState:|,Memory:|,AllocMem:|,Gres:|,GresUsed:|'"
         )
 
         rc, out, err = await run_cmd(cmd, timeout=10)
@@ -381,10 +391,11 @@ class SlurmClient:
                 "PARTITION": "gpu",
                 "STATE": "idle",
                 "AVAIL": "up",
-                "CPUS": "240",
-                "MEM": "1000G",
-                "S:C:T": "2:60:2",
+                "CPUS_STATE": "64/160/0/224",  # Alloc/Idle/Other/Total
+                "MEM": "1960740",
+                "ALLOC_MEM": "819200",
                 "GRES": "gpu:h100:8",
+                "GRES_USED": "gpu:h100:4",
             }
         ]
 

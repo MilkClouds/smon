@@ -617,6 +617,45 @@ class SlurmDashboard(App):
         text.append(f" {used}/{total}", style="cyan")
         return text
 
+    def _format_cpu_usage(self, cpus_state: str) -> Text:
+        """Format CPU usage from CPUsState field (Alloc/Idle/Other/Total)."""
+        if not cpus_state:
+            return Text("-", style="dim")
+
+        try:
+            parts = cpus_state.split("/")
+            if len(parts) >= 4:
+                alloc = int(parts[0])
+                total = int(parts[3])
+                return Text(f"{alloc}/{total}", style="cyan")
+        except (ValueError, IndexError):
+            pass
+        return Text(cpus_state)
+
+    def _format_mem_usage(self, alloc_mem: str, total_mem: str) -> Text:
+        """Format memory usage as alloc/total in human-readable format."""
+        if not total_mem:
+            return Text("-", style="dim")
+
+        try:
+            # Memory values are in MB from sinfo
+            alloc_mb = int(alloc_mem) if alloc_mem else 0
+            total_mb = int(total_mem) if total_mem else 0
+
+            if total_mb == 0:
+                return Text("-", style="dim")
+
+            # Convert to human-readable format (GB)
+            alloc_gb = alloc_mb / 1024
+            total_gb = total_mb / 1024
+
+            if total_gb >= 1000:
+                return Text(f"{alloc_gb:.0f}/{total_gb:.0f}G", style="cyan")
+            return Text(f"{alloc_gb:.0f}/{total_gb:.0f}G", style="cyan")
+        except (ValueError, TypeError):
+            pass
+        return Text(f"{alloc_mem}/{total_mem}" if alloc_mem else total_mem)
+
     def _populate_nodes(self, nodes: List[Dict[str, Any]]) -> None:
         """Populate the nodes table with data."""
         table: DataTable = self.query_one("#nodes_table", DataTable)
@@ -627,13 +666,15 @@ class SlurmDashboard(App):
         for n in nodes:
             state = n.get("STATE", "")
             gpu_display = self._format_gpu_bar(n.get("GRES", ""), n.get("GRES_USED", ""))
+            cpu_display = self._format_cpu_usage(n.get("CPUS_STATE", ""))
+            mem_display = self._format_mem_usage(n.get("ALLOC_MEM", ""), n.get("MEM", ""))
             table.add_row(
                 n.get("NODE", ""),
                 self._format_state(state, is_node=True),
                 n.get("AVAIL", ""),
                 gpu_display,
-                n.get("CPUS", ""),
-                n.get("MEM", ""),
+                cpu_display,
+                mem_display,
                 n.get("PARTITION", ""),
             )
 
