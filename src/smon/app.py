@@ -648,9 +648,6 @@ class SlurmDashboard(App):
             # Convert to human-readable format (GB)
             alloc_gb = alloc_mb / 1024
             total_gb = total_mb / 1024
-
-            if total_gb >= 1000:
-                return Text(f"{alloc_gb:.0f}/{total_gb:.0f}G", style="cyan")
             return Text(f"{alloc_gb:.0f}/{total_gb:.0f}G", style="cyan")
         except (ValueError, TypeError):
             pass

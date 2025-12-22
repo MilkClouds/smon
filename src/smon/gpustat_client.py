@@ -13,6 +13,25 @@ try:
 except ImportError:
     HAS_WEBSOCKETS = False
 
+# Pre-compiled regex patterns for HTML parsing
+_SCRIPT_PATTERN = re.compile(r"<script[^>]*>.*?</script>", re.DOTALL | re.IGNORECASE)
+_STYLE_PATTERN = re.compile(r"<style[^>]*>.*?</style>", re.DOTALL | re.IGNORECASE)
+_PRE_PATTERN = re.compile(r"<pre[^>]*>(.*?)</pre>", re.DOTALL | re.IGNORECASE)
+_SPAN_PATTERN = re.compile(r'<span[^>]*class="([^"]*)"[^>]*>(.*?)</span>', re.DOTALL)
+_TAG_PATTERN = re.compile(r"<[^>]+>")
+
+# ANSI CSS class to Rich style mapping
+_ANSI_COLOR_MAP = {
+    "ansi32": "green",  # Green (OK status)
+    "ansi31": "red",  # Red (error/high temp)
+    "ansi33": "yellow",  # Yellow (warning)
+    "ansi34": "blue",  # Blue
+    "ansi35": "magenta",  # Magenta
+    "ansi36": "cyan",  # Cyan
+    "ansi1": "bold",  # Bold
+    "ansi2": "dim",  # Dim
+}
+
 
 class GpustatClient:
     """Client for connecting to gpustat-web and receiving GPU status updates."""
@@ -103,53 +122,32 @@ class GpustatClient:
 
         Converts ANSI CSS classes back to Rich markup for terminal display.
         """
-        # Remove script tags and their content
-        html = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
-
-        # Remove style tags
-        html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
+        # Remove script and style tags
+        html = _SCRIPT_PATTERN.sub("", html)
+        html = _STYLE_PATTERN.sub("", html)
 
         # Extract content from pre tags (gpustat output is usually in pre)
-        pre_match = re.search(r"<pre[^>]*>(.*?)</pre>", html, flags=re.DOTALL | re.IGNORECASE)
+        pre_match = _PRE_PATTERN.search(html)
         if pre_match:
             html = pre_match.group(1)
 
-        # Convert common ANSI color classes to Rich markup
-        color_map = {
-            "ansi32": "green",  # Green (OK status)
-            "ansi31": "red",  # Red (error/high temp)
-            "ansi33": "yellow",  # Yellow (warning)
-            "ansi34": "blue",  # Blue
-            "ansi35": "magenta",  # Magenta
-            "ansi36": "cyan",  # Cyan
-            "ansi1": "bold",  # Bold
-            "ansi2": "dim",  # Dim
-        }
-
         # Replace span tags with Rich markup
-        def replace_span(match):
+        def replace_span(match: re.Match[str]) -> str:
             classes = match.group(1)
             content = match.group(2)
-            styles = []
-            for cls, style in color_map.items():
-                if cls in classes:
-                    styles.append(style)
+            styles = [style for cls, style in _ANSI_COLOR_MAP.items() if cls in classes]
             if styles:
                 style_str = " ".join(styles)
                 return f"[{style_str}]{content}[/{style_str}]"
             return content
 
-        html = re.sub(r'<span[^>]*class="([^"]*)"[^>]*>(.*?)</span>', replace_span, html, flags=re.DOTALL)
+        html = _SPAN_PATTERN.sub(replace_span, html)
 
-        # Remove remaining HTML tags
-        html = re.sub(r"<[^>]+>", "", html)
+        # Remove remaining HTML tags and unescape entities
+        html = unescape(_TAG_PATTERN.sub("", html))
 
-        # Unescape HTML entities
-        html = unescape(html)
-
-        # Clean up whitespace
+        # Clean up whitespace - strip leading/trailing empty lines
         lines = [line.rstrip() for line in html.split("\n")]
-        # Remove empty lines at start and end
         while lines and not lines[0].strip():
             lines.pop(0)
         while lines and not lines[-1].strip():

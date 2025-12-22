@@ -48,14 +48,22 @@ class SlurmClient:
 
     def __init__(self, cmds: Optional[SlurmCommands] = None) -> None:
         self.cmds = cmds or SlurmCommands()
-        for name in ("squeue", "sinfo", "scontrol"):
-            found = which(getattr(self.cmds, name))
+        self._has_squeue = False
+        self._has_sinfo = False
+        self._has_scontrol = False
+        self._has_scancel = False
+
+        for name in ("squeue", "sinfo", "scontrol", "scancel"):
+            cmd_path = getattr(self.cmds, name, name)
+            found = which(cmd_path)
             if found:
-                setattr(self.cmds, name, shlex.quote(found))
+                if hasattr(self.cmds, name):
+                    setattr(self.cmds, name, shlex.quote(found))
+                setattr(self, f"_has_{name}", True)
 
     async def get_jobs(self) -> List[Dict[str, Any]]:
         """Get list of jobs from Slurm."""
-        if not which("squeue"):
+        if not self._has_squeue:
             return self._mock_jobs()
 
         cols = [
@@ -120,7 +128,7 @@ class SlurmClient:
 
     async def get_nodes(self) -> List[Dict[str, Any]]:
         """Get list of nodes from Slurm."""
-        if not which("sinfo"):
+        if not self._has_sinfo:
             return self._mock_nodes()
 
         # Use -O (long format) for GresUsed, CPUsState, AllocMem
@@ -154,7 +162,7 @@ class SlurmClient:
 
     async def get_job_detail(self, jobid: str) -> str:
         """Get detailed information for a specific job."""
-        if not which("scontrol"):
+        if not self._has_scontrol:
             return f"Mock details for Job {jobid}\nUser=alice State=RUNNING Nodes=1 CPUS=8 Mem=16G"
         cmd = f"{self.cmds.scontrol} show job {shlex.quote(jobid)}"
         rc, out, err = await run_cmd(cmd, timeout=10)
@@ -164,7 +172,7 @@ class SlurmClient:
 
     async def get_job_script(self, jobid: str) -> str:
         """Get the batch script for a job."""
-        if not which("scontrol"):
+        if not self._has_scontrol:
             return "Slurm scontrol not available; cannot fetch job script."
         cmd = f"{self.cmds.scontrol} write batch_script {shlex.quote(jobid)} -"
         rc, out, _err = await run_cmd(cmd, timeout=15)
@@ -182,7 +190,7 @@ class SlurmClient:
         Returns:
             Tuple of (stdout_path, stderr_path).
         """
-        if not which("scontrol"):
+        if not self._has_scontrol:
             return "", ""
 
         if detail is None:
@@ -449,11 +457,11 @@ class SlurmClient:
         Returns:
             Tuple of (success, message)
         """
-        if not which("scancel"):
+        if not self._has_scancel:
             return False, "scancel command not found"
 
         cmd = f"scancel {shlex.quote(jobid)}"
-        rc, _out, err = await run_cmd(cmd, timeout=10)
+        rc, _, err = await run_cmd(cmd, timeout=10)
 
         if rc == 0:
             return True, f"Job {jobid} cancelled successfully"
