@@ -65,7 +65,11 @@ class GpustatClient:
 
                     while self._running:
                         try:
-                            message = await asyncio.wait_for(ws.recv(), timeout=10.0)
+                            raw_message = await asyncio.wait_for(ws.recv(), timeout=10.0)
+                            if isinstance(raw_message, str):
+                                message = raw_message
+                            else:
+                                message = bytes(raw_message).decode("utf-8", errors="replace")
                             parsed = self._parse_html_to_text(message)
                             on_message(parsed)
                         except asyncio.TimeoutError:
