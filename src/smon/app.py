@@ -165,21 +165,13 @@ class SlurmDashboard(App):
     async def on_key(self, event) -> None:
         """Handle key events for cancel confirmation."""
         if self._pending_cancel_jobid is not None:
-            if event.key == "c":
-                # Confirm cancellation
-                jobid = self._pending_cancel_jobid
-                self._pending_cancel_jobid = None
-                success, msg = await self.client.cancel_job(jobid)
-                if success:
-                    self.status.message = f"✅ {msg}"
-                    await self.refresh_data()
-                else:
-                    self.status.message = f"❌ Failed to cancel job {jobid}: {msg}"
-            else:
-                # Abort cancellation
+            if event.key != "c":
+                # Abort cancellation on any key except 'c'
+                # Note: 'c' key is handled in action_cancel_job to avoid race condition
                 self._pending_cancel_jobid = None
                 self.status.message = "Cancellation aborted"
             event.stop()
+            event.prevent_default()
 
     async def on_mount(self) -> None:
         jobs_table: DataTable = self.query_one("#jobs_table", DataTable)
@@ -363,6 +355,18 @@ class SlurmDashboard(App):
 
     async def action_cancel_job(self) -> None:
         """Cancel the selected job."""
+        # If already in confirmation mode, execute the cancellation
+        if self._pending_cancel_jobid is not None:
+            jobid = self._pending_cancel_jobid
+            self._pending_cancel_jobid = None
+            success, msg = await self.client.cancel_job(jobid)
+            if success:
+                self.status.message = f"✅ {msg}"
+                await self.refresh_data()
+            else:
+                self.status.message = f"❌ Failed to cancel job {jobid}: {msg}"
+            return
+
         table: DataTable = self.query_one("#jobs_table", DataTable)
         if not table.row_count or table.cursor_coordinate is None:
             self.status.message = "No job selected"
