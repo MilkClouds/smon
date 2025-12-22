@@ -130,4 +130,27 @@ Screen { layout: vertical; overflow: hidden; }
     height: auto;
 }
 
+/* Node Jobs Modal */
+#node_jobs_modal_container {
+    background: $surface;
+    border: solid $primary;
+    padding: 1 2;
+    width: 80%;
+    height: 70%;
+}
+
+#node_jobs_header {
+    height: auto;
+    padding-bottom: 1;
+}
+
+#node_jobs_content {
+    height: 1fr;
+    overflow-y: auto;
+}
+
+#node_jobs_table {
+    width: 100%;
+}
+
 """
