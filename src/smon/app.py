@@ -80,10 +80,11 @@ class SlurmDashboard(App):
         user: Optional[str] = None,
         partition: Optional[str] = None,
         gpustat_web_url: Optional[str] = None,
+        mock_mode: bool = False,
     ) -> None:
         super().__init__()
         self.refresh_sec = refresh_sec
-        self.client = SlurmClient()
+        self.client = SlurmClient(mock_mode=mock_mode)
         self.filter = Filter()
         self.filter.user = user
         self.filter.partition = partition

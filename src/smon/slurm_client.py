@@ -46,24 +46,30 @@ class SlurmClient:
         ]
     )
 
-    def __init__(self, cmds: Optional[SlurmCommands] = None) -> None:
+    def __init__(self, cmds: Optional[SlurmCommands] = None, mock_mode: bool = False) -> None:
         self.cmds = cmds or SlurmCommands()
-        self._has_squeue = False
-        self._has_sinfo = False
-        self._has_scontrol = False
-        self._has_scancel = False
+        self._mock_mode = mock_mode
 
+        # Check for required Slurm commands
+        missing_cmds: List[str] = []
         for name in ("squeue", "sinfo", "scontrol", "scancel"):
             cmd_path = getattr(self.cmds, name, name)
             found = which(cmd_path)
             if found:
                 if hasattr(self.cmds, name):
                     setattr(self.cmds, name, shlex.quote(found))
-                setattr(self, f"_has_{name}", True)
+            else:
+                missing_cmds.append(name)
+
+        # If commands are missing and not in mock mode, raise error
+        if missing_cmds and not mock_mode:
+            raise RuntimeError(
+                f"Slurm commands not found: {', '.join(missing_cmds)}. Use --mock flag for demo/testing mode."
+            )
 
     async def get_jobs(self) -> List[Dict[str, Any]]:
         """Get list of jobs from Slurm."""
-        if not self._has_squeue:
+        if self._mock_mode:
             return self._mock_jobs()
 
         cols = [
@@ -128,7 +134,7 @@ class SlurmClient:
 
     async def get_nodes(self) -> List[Dict[str, Any]]:
         """Get list of nodes from Slurm."""
-        if not self._has_sinfo:
+        if self._mock_mode:
             return self._mock_nodes()
 
         # Use -O (long format) for GresUsed, CPUsState, AllocMem
@@ -162,7 +168,7 @@ class SlurmClient:
 
     async def get_job_detail(self, jobid: str) -> str:
         """Get detailed information for a specific job."""
-        if not self._has_scontrol:
+        if self._mock_mode:
             return f"Mock details for Job {jobid}\nUser=alice State=RUNNING Nodes=1 CPUS=8 Mem=16G"
         cmd = f"{self.cmds.scontrol} show job {shlex.quote(jobid)}"
         rc, out, err = await run_cmd(cmd, timeout=10)
@@ -172,8 +178,8 @@ class SlurmClient:
 
     async def get_job_script(self, jobid: str) -> str:
         """Get the batch script for a job."""
-        if not self._has_scontrol:
-            return "Slurm scontrol not available; cannot fetch job script."
+        if self._mock_mode:
+            return f"#!/bin/bash\n#SBATCH --job-name=mock_job_{jobid}\necho 'Mock script'"
         cmd = f"{self.cmds.scontrol} write batch_script {shlex.quote(jobid)} -"
         rc, out, _err = await run_cmd(cmd, timeout=15)
         if rc == 0 and out.strip():
@@ -190,8 +196,8 @@ class SlurmClient:
         Returns:
             Tuple of (stdout_path, stderr_path).
         """
-        if not self._has_scontrol:
-            return "", ""
+        if self._mock_mode:
+            return "/tmp/mock_stdout.txt", "/tmp/mock_stderr.txt"
 
         if detail is None:
             detail = await self.get_job_detail(jobid)
@@ -457,8 +463,8 @@ class SlurmClient:
         Returns:
             Tuple of (success, message)
         """
-        if not self._has_scancel:
-            return False, "scancel command not found"
+        if self._mock_mode:
+            return True, f"[Mock] Job {jobid} cancelled successfully"
 
         cmd = f"scancel {shlex.quote(jobid)}"
         rc, _, err = await run_cmd(cmd, timeout=10)
