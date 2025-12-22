@@ -7,7 +7,6 @@ from typing import Callable, Optional
 from urllib.parse import urlparse
 
 try:
-    import websockets
     from websockets.asyncio.client import connect as ws_connect
 
     HAS_WEBSOCKETS = True
@@ -153,4 +152,3 @@ class GpustatClient:
             lines.pop()
 
         return "\n".join(lines)
-
