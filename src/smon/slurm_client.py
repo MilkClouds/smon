@@ -176,6 +176,32 @@ class SlurmClient:
             return f"Failed to get job detail: {err.strip() or 'unknown error'}"
         return out.strip()
 
+    async def get_jobs_on_node(self, node_name: str) -> List[Dict[str, Any]]:
+        """Get jobs running on a specific node using squeue -w."""
+        if self._mock_mode:
+            # Return mock jobs that match the node
+            return [j for j in self._mock_jobs() if j.get("NodeList") == node_name]
+
+        # Use squeue -w to query jobs on specific node
+        fmt = "%i|%u|%T|%M|%P|%j|%C"
+        cols = ["JOBID", "USER", "STATE", "TIME", "PARTITION", "NAME", "CPUS"]
+        cmd = f"{self.cmds.squeue} -h -w {shlex.quote(node_name)} -o '{fmt}'"
+        rc, out, _err = await run_cmd(cmd, timeout=10)
+        if rc != 0:
+            return []
+
+        jobs: List[Dict[str, Any]] = []
+        for line in out.splitlines():
+            if not line.strip():
+                continue
+            parts = [p.strip() for p in line.split("|")]
+            if len(parts) < len(cols):
+                continue
+            row = {k: parts[i] if i < len(parts) else "" for i, k in enumerate(cols)}
+            row["GPU_COUNT"] = ""  # Not available in this format
+            jobs.append(row)
+        return jobs
+
     async def get_job_script(self, jobid: str) -> str:
         """Get the batch script for a job."""
         if self._mock_mode:

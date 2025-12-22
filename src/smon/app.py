@@ -16,6 +16,7 @@ from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.widgets import DataTable, Footer, Header, Input, Select, Static, TabbedContent, TabPane
 
 from .gpustat_client import GpustatClient
+from .modals import NodeJobsModal
 from .slurm_client import SlurmClient
 from .styles import APP_CSS
 from .widgets import Filter, GpustatViewer, LogViewer, StatusBar, SyntaxViewer
@@ -681,9 +682,16 @@ class SlurmDashboard(App):
             )
 
     async def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        """Handle row selection in the jobs table."""
-        if event.data_table.id != "jobs_table":
+        """Handle row selection in jobs or nodes table."""
+        table_id = event.data_table.id
+
+        if table_id == "nodes_table":
+            self._handle_node_selected(event)
             return
+
+        if table_id != "jobs_table":
+            return
+
         row_key = event.row_key
         if row_key is None:
             return
@@ -712,6 +720,28 @@ class SlurmDashboard(App):
             exclusive=True,
             exit_on_error=False,
         )
+
+    def _handle_node_selected(self, event: DataTable.RowSelected) -> None:
+        """Handle node selection to show jobs running on that node."""
+        row_key = event.row_key
+        if row_key is None:
+            return
+        row = event.data_table.get_row(row_key)
+        if not row:
+            return
+
+        # First column is NODE name
+        node_name = str(row[0])
+        if hasattr(row[0], "plain"):
+            node_name = row[0].plain
+
+        # Query jobs on this node asynchronously
+        self.run_worker(self._fetch_and_show_node_jobs(node_name))
+
+    async def _fetch_and_show_node_jobs(self, node_name: str) -> None:
+        """Fetch jobs on a node and show modal."""
+        node_jobs = await self.client.get_jobs_on_node(node_name)
+        self.push_screen(NodeJobsModal(node_name, node_jobs))
 
     async def _load_job_details(self, jobid: str, can_refresh: bool) -> None:
         """Load job details, script, and output asynchronously."""

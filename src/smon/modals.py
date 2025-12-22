@@ -8,9 +8,10 @@ These classes are kept for potential future use or as reference.
 """
 
 import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List
 
 from rich.syntax import Syntax
+from rich.table import Table
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import ScrollableContainer, Vertical
@@ -135,3 +136,74 @@ class OutputModal(ModalScreen):
                 f"[bold bright_green]📊 Job Output - Job {self.jobid}[/bold bright_green]\n"
                 f"[bold red]Refresh error: {e}[/bold red]"
             )
+
+
+class NodeJobsModal(ModalScreen[None]):
+    """Modal screen for displaying jobs running on a specific node."""
+
+    CSS = """
+    NodeJobsModal {
+        align: center middle;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "dismiss", "Close"),
+        Binding("q", "dismiss", "Close"),
+    ]
+
+    def __init__(self, node_name: str, jobs: List[Dict[str, Any]]) -> None:
+        super().__init__()
+        self.node_name = node_name
+        self.jobs = jobs
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="node_jobs_modal_container"):
+            job_count = len(self.jobs)
+            yield Static(
+                f"[bold bright_cyan]🖥️ Jobs on {self.node_name}[/bold bright_cyan] "
+                f"[dim]({job_count} job{'s' if job_count != 1 else ''})[/dim]\n"
+                f"[dim]Press [bold]Escape[/bold] or [bold]q[/bold] to close[/dim]",
+                id="node_jobs_header",
+            )
+            with ScrollableContainer(id="node_jobs_content"):
+                yield Static(self._build_jobs_table(), id="node_jobs_table")
+
+    def _build_jobs_table(self) -> Table:
+        """Build a Rich table showing jobs on this node."""
+        table = Table(box=None, expand=True, show_header=True, header_style="bold")
+        table.add_column("JOBID", style="cyan")
+        table.add_column("USER", style="green")
+        table.add_column("STATE")
+        table.add_column("NAME")
+        table.add_column("CPUS", justify="right")
+        table.add_column("GPUs", justify="right")
+        table.add_column("TIME")
+
+        state_colors = {
+            "RUNNING": "green",
+            "PENDING": "yellow",
+            "COMPLETING": "cyan",
+        }
+
+        for job in self.jobs:
+            state = job.get("STATE", "")
+            state_color = state_colors.get(state, "white")
+            table.add_row(
+                job.get("JOBID", ""),
+                job.get("USER", job.get("USERNAME", "")),
+                f"[{state_color}]{state}[/{state_color}]",
+                job.get("NAME", ""),
+                job.get("CPUS", ""),
+                job.get("GPU_COUNT", "0"),
+                job.get("TIME", ""),
+            )
+
+        if not self.jobs:
+            table.add_row("[dim]No jobs running on this node[/dim]", "", "", "", "", "", "")
+
+        return table
+
+    async def action_dismiss(self, result: None = None) -> None:
+        """Close the modal."""
+        self.dismiss(result)
