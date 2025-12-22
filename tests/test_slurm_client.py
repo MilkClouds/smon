@@ -22,6 +22,27 @@ class TestSlurmCommands:
         assert cmds.sinfo == "/usr/bin/sinfo"
 
 
+class TestSlurmClientMockMode:
+    """Tests for SlurmClient mock mode behavior."""
+
+    def test_mock_mode_does_not_raise(self) -> None:
+        """Test that mock mode does not raise error when Slurm is unavailable."""
+        # Should not raise even if Slurm commands don't exist
+        client = SlurmClient(mock_mode=True)
+        assert client._mock_mode is True
+
+    def test_non_mock_mode_raises_without_slurm(self) -> None:
+        """Test that non-mock mode raises error when Slurm is unavailable."""
+        # Use non-existent command paths to simulate missing Slurm
+        cmds = SlurmCommands(
+            squeue="/nonexistent/squeue",
+            sinfo="/nonexistent/sinfo",
+            scontrol="/nonexistent/scontrol",
+        )
+        with pytest.raises(RuntimeError, match="Slurm commands not found"):
+            SlurmClient(cmds=cmds, mock_mode=False)
+
+
 class TestSlurmClientNodeGpuParsing:
     """Tests for node GPU parsing methods."""
 

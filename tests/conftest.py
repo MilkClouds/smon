@@ -8,8 +8,8 @@ from smon.widgets import Filter
 
 @pytest.fixture
 def slurm_client() -> SlurmClient:
-    """Create a SlurmClient instance for testing."""
-    return SlurmClient()
+    """Create a SlurmClient instance for testing (mock mode)."""
+    return SlurmClient(mock_mode=True)
 
 
 @pytest.fixture

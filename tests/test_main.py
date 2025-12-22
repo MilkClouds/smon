@@ -13,6 +13,7 @@ class TestParseArgs:
         assert args.user is None
         assert args.me is False
         assert args.partition is None
+        assert args.mock is False
 
     def test_refresh_arg(self) -> None:
         """Test --refresh argument."""
@@ -45,3 +46,8 @@ class TestParseArgs:
         assert args.refresh == 2.5
         assert args.user == "alice"
         assert args.partition == "gpu"
+
+    def test_mock_flag(self) -> None:
+        """Test --mock flag."""
+        args = parse_args(["--mock"])
+        assert args.mock is True

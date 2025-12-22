@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#     "textual",
-#     "rich",
-# ]
-# ///
 """
 Slurm Dashboard (Textual) - DGX H100 Cluster Edition
 
@@ -59,6 +51,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         default=None,
         help="gpustat-web URL (e.g., http://10.50.0.111:48109/)",
     )
+    p.add_argument(
+        "--mock",
+        action="store_true",
+        help="Use mock data (for development/testing without Slurm)",
+    )
     return p.parse_args(argv)
 
 
@@ -81,6 +78,7 @@ def main() -> None:
         user=user_filter,
         partition=args.partition,
         gpustat_web_url=gpustat_web_url,
+        mock_mode=args.mock,
     )
     app.run()
 

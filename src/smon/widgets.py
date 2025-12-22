@@ -2,7 +2,6 @@
 
 from typing import Any, Dict, List, Optional
 
-from rich.console import Console
 from rich.syntax import Syntax
 from textual.reactive import reactive
 from textual.widgets import Static
@@ -22,7 +21,6 @@ class SyntaxViewer(Static):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.console = Console()
         self._code: str = ""
         self._language: str = "bash"
 

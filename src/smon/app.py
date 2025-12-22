@@ -80,10 +80,11 @@ class SlurmDashboard(App):
         user: Optional[str] = None,
         partition: Optional[str] = None,
         gpustat_web_url: Optional[str] = None,
+        mock_mode: bool = False,
     ) -> None:
         super().__init__()
         self.refresh_sec = refresh_sec
-        self.client = SlurmClient()
+        self.client = SlurmClient(mock_mode=mock_mode)
         self.filter = Filter()
         self.filter.user = user
         self.filter.partition = partition
@@ -648,9 +649,6 @@ class SlurmDashboard(App):
             # Convert to human-readable format (GB)
             alloc_gb = alloc_mb / 1024
             total_gb = total_mb / 1024
-
-            if total_gb >= 1000:
-                return Text(f"{alloc_gb:.0f}/{total_gb:.0f}G", style="cyan")
             return Text(f"{alloc_gb:.0f}/{total_gb:.0f}G", style="cyan")
         except (ValueError, TypeError):
             pass
