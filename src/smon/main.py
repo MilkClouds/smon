@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#     "textual",
-#     "rich",
-# ]
-# ///
 """
 Slurm Dashboard (Textual) - DGX H100 Cluster Edition
 
