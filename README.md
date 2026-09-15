@@ -4,8 +4,6 @@
 
 A terminal user interface (TUI) for monitoring Slurm clusters. Built with [Textual](https://github.com/Textualize/textual) for DGX H100 clusters.
 
-> **⚠️ Development Notice**: This project is mainly implemented with LLM assistance and may have bugs. Contributions are welcome, including major changes.
-
 ## Features
 
 - Job monitoring with live updates
