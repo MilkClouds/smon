@@ -1,8 +1,17 @@
 # smon
 
+[![PyPI](https://img.shields.io/pypi/v/smon-tui)](https://pypi.org/project/smon-tui/)
+[![Python](https://img.shields.io/pypi/pyversions/smon-tui)](https://pypi.org/project/smon-tui/)
+[![CI](https://github.com/MilkClouds/smon/actions/workflows/ci.yml/badge.svg)](https://github.com/MilkClouds/smon/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 <img width="1348" height="763" alt="image" src="https://github.com/user-attachments/assets/81379b1e-3547-42a5-bde1-725c51b521f6" />
 
 A terminal user interface (TUI) for monitoring Slurm clusters. Built with [Textual](https://github.com/Textualize/textual) for DGX H100 clusters.
+
+```sh
+uvx --from smon-tui smon
+```
 
 ## Features
 
@@ -18,31 +27,19 @@ A terminal user interface (TUI) for monitoring Slurm clusters. Built with [Textu
 
 ## Installation
 
-The package is published on PyPI as [`smon-tui`](https://pypi.org/project/smon-tui/); the command it installs is `smon`.
+smon is on PyPI as [`smon-tui`](https://pypi.org/project/smon-tui/) (the name `smon` was taken). The installed command is `smon`.
 
-### Using `uvx`/`uv tool` (recommended)
+| | Command |
+|---|---|
+| Run once, no install | `uvx --from smon-tui smon` |
+| Install with uv (recommended) | `uv tool install smon-tui` |
+| Install with pipx | `pipx install smon-tui` |
+| Install with pip | `pip install smon-tui` |
+| Upgrade | `uv tool upgrade smon-tui` / `pipx upgrade smon-tui` / `pip install -U smon-tui` |
+| Latest `main` from git | `uv tool install git+https://github.com/MilkClouds/smon.git` |
 
-```sh
-# 1. Run without installing
-$ uvx --from smon-tui smon
-
-# 2. Install as a tool
-$ uv tool install smon-tui
-$ smon
-```
-
-### Using pip
-
-```sh
-$ pip install smon-tui
-$ smon
-```
-
-### From git (latest main)
-
-```sh
-$ uv tool install git+https://github.com/MilkClouds/smon.git
-```
+Requires Python 3.11+ on a machine where `squeue`, `sinfo`, `scontrol` and `scancel` are on `PATH`
+(typically a Slurm login node). Try it without a cluster with `smon --mock`.
 
 ## Usage
 
@@ -121,13 +118,7 @@ smon can display real-time GPU status from [gpustat-web](https://github.com/wook
 
 The Nodes tab will show the Slurm node table on the left and live GPU status from gpustat-web on the right.
 
-## Requirements
-
-- Python ≥ 3.11
-- Slurm cluster with `squeue`, `sinfo`, and `scontrol` commands
-- Terminal with color support
-
-## Dependencies
+## Built with
 
 - [Textual](https://github.com/Textualize/textual) - TUI framework
 - [Rich](https://github.com/Textualize/rich) - Text formatting
@@ -139,3 +130,19 @@ The Nodes tab will show the Slurm node table on the left and live GPU status fro
 ## Contributing
 
 Issues and pull requests are welcome.
+
+```sh
+git clone https://github.com/MilkClouds/smon.git && cd smon
+uv sync --dev
+uv run smon --mock      # run against mock data
+uv run pytest           # tests
+uv run ruff check .     # lint
+```
+
+### Releasing
+
+Versions come from git tags (hatch-vcs). Pushing a `v*` tag builds and publishes to PyPI via trusted publishing:
+
+```sh
+git tag -a v0.2.0 -m "v0.2.0" && git push origin v0.2.0
+```
