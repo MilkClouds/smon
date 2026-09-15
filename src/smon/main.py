@@ -1,86 +1,48 @@
-"""
-Slurm Dashboard (Textual) - DGX H100 Cluster Edition
-
-Terminal UI for monitoring Slurm queues and nodes using Textual.
-Optimized for DGX H100 clusters with intuitive GPU usage display.
-
-Features:
-- Job and node monitoring with real-time updates
-- Intuitive GPU usage display (e.g., "4×H100", "2×A100")
-- Uses squeue_ alias format for comprehensive job information
-- Modal windows for script and output viewing (press 's'/'o', close with Escape)
-- Script viewing with bash syntax highlighting in modal windows
-- Real-time stdout/stderr tracking with refresh capability in modals
-- Enhanced UI with multiple tabs for better organization
-- Keyboard shortcuts for quick navigation
-
-GPU Display:
-- Jobs table shows GPU count clearly (GPUs column shows just the number)
-- Nodes table shows available GPU count per node
-- Partition indicates GPU type (a100/h100), so no need to show type in GPU column
-- Clean display: "4" instead of "4×H100" since partition already indicates type
-
-Updates:
-- Enhanced squeue format matching squeue_ alias
-- Added intuitive GPU count and type parsing
-- Added dedicated Script tab with syntax highlighting
-- Added Output tab with real-time stdout/stderr tracking
-- Improved job selection with auto-loading of script and output
-- Added toggle for real-time output refresh (press 't')
-- Enhanced keybindings: 's' (script), 'o' (output), 't' (toggle real-time)
-"""
+"""Command line entry point for smon."""
 
 import argparse
 import os
-from typing import List, Optional
 
 from .app import SlurmDashboard
 from .config import Config
 
 
-def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    """Parse command line arguments."""
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse command line arguments. Unset options fall back to ~/.config/smon/config.json."""
     p = argparse.ArgumentParser(description="Slurm Dashboard (Textual)")
-    p.add_argument("--refresh", type=float, default=5.0, help="Auto-refresh interval (s)")
+    p.add_argument("--refresh", type=float, default=None, help="Auto-refresh interval in seconds (default: 5)")
     p.add_argument("--user", type=str, default=None, help="Default user filter")
     p.add_argument("--me", action="store_true", help="Filter jobs for current user (alias for --user $USER)")
     p.add_argument("--partition", "-p", type=str, default=None, help="Default partition filter")
-    p.add_argument(
-        "--gpustat-web",
-        type=str,
-        default=None,
-        help="gpustat-web URL (e.g., http://10.50.0.111:48109/)",
-    )
-    p.add_argument(
-        "--mock",
-        action="store_true",
-        help="Use mock data (for development/testing without Slurm)",
-    )
+    p.add_argument("--state", type=str, default=None, help="Default job state filter (e.g. RUNNING)")
+    p.add_argument("--theme", choices=["dark", "light"], default=None, help="Colour theme")
+    p.add_argument("--gpustat-web", type=str, default=None, help="gpustat-web URL (e.g., http://10.50.0.111:48109/)")
+    p.add_argument("--mock", action="store_true", help="Use mock data (for development/testing without Slurm)")
     return p.parse_args(argv)
+
+
+def build_app(args: argparse.Namespace, config: Config) -> SlurmDashboard:
+    """Merge CLI arguments over the config file and construct the app."""
+    user_filter = args.user
+    if args.me:
+        user_filter = os.getenv("USER") or os.getenv("USERNAME") or "unknown"
+    if user_filter is None:
+        user_filter = config.user_filter
+
+    return SlurmDashboard(
+        refresh_sec=args.refresh if args.refresh is not None else config.refresh_sec,
+        user=user_filter,
+        partition=args.partition if args.partition is not None else config.partition_filter,
+        state=args.state if args.state is not None else config.state_filter,
+        theme=args.theme or config.theme,
+        gpustat_web_url=args.gpustat_web or config.gpustat_web_url,
+        mock_mode=args.mock,
+    )
 
 
 def main() -> None:
     """Main entry point for smon."""
-    args = parse_args()
-
-    # Load config for defaults
-    config = Config.load()
-
-    user_filter = args.user
-    if args.me:
-        user_filter = os.getenv("USER") or os.getenv("USERNAME") or "unknown"
-
-    # Use CLI arg if provided, otherwise fall back to config
-    gpustat_web_url = args.gpustat_web or config.gpustat_web_url
-
-    app = SlurmDashboard(
-        refresh_sec=args.refresh,
-        user=user_filter,
-        partition=args.partition,
-        gpustat_web_url=gpustat_web_url,
-        mock_mode=args.mock,
-    )
-    app.run()
+    build_app(parse_args(), Config.load()).run()
 
 
 if __name__ == "__main__":

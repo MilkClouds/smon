@@ -161,3 +161,53 @@ class TestSlurmClientTimeParsing:
     def test_calculate_time_ratio_unlimited(self) -> None:
         """Test time ratio with unlimited limit returns -1."""
         assert SlurmClient.calculate_time_ratio("30:00", "UNLIMITED") == -1.0
+
+
+class TestOutputParsing:
+    """Tests for `|`-suffixed --Format parsing."""
+
+    def test_split_rejoins_separator_in_trailing_name(self) -> None:
+        from smon.slurm_client import _split
+
+        assert _split("1|a|b|", 3) == ["1", "a", "b"]
+        assert _split("1|a|we|ird|name|", 3) == ["1", "a", "we|ird|name"]
+        assert _split("1|a||", 3) == ["1", "a", ""]
+        assert _split("1|a|", 3) is None
+
+    def test_parse_jobs(self, slurm_client: SlurmClient) -> None:
+        line = (
+            "181830|a100|claude|PENDING|cpu=4,mem=8G,node=1,billing=4|0:00|UNLIMITED|1||"
+            "ReqNodeNotAvail, UnavailableNodes:A100-Bumblebee|rfm-dataset-dashboard|\n"
+            "204084|h100|jyjung|RUNNING|cpu=96,mem=700G,node=1,billing=96,gres/gpu=8|1:15:24|6:00:00|1|DGX-H100-2|None|ev|x|\n"
+        )
+        jobs = slurm_client._parse_jobs(line)
+        assert [j["JOBID"] for j in jobs] == ["181830", "204084"]
+        assert jobs[0]["Reason"] == "ReqNodeNotAvail, UnavailableNodes:A100-Bumblebee"
+        assert jobs[0]["NodeList"] == ""
+        assert jobs[1]["GPU_COUNT"] == "8"
+        assert jobs[1]["NAME"] == "ev|x"
+
+    def test_parse_gpu_type(self, slurm_client: SlurmClient) -> None:
+        assert slurm_client._parse_gpu_type("cpu=8,gres/gpu:h100:4") == "H100"
+        assert slurm_client._parse_gpu_type("cpu=8,gres/gpu=4") == ""
+
+    def test_collapse_carriage_returns(self) -> None:
+        from smon.slurm_client import collapse_carriage_returns
+
+        assert collapse_carriage_returns("plain\nlines") == "plain\nlines"
+        assert collapse_carriage_returns("10%\r50%\r100%\ndone") == "100%\ndone"
+        assert collapse_carriage_returns("a\r\nb\r\n") == "a\nb\n"
+        assert collapse_carriage_returns("10%\r50%\r\nend") == "50%\nend"
+
+
+class TestSlurmClientLive:
+    """Async paths exercised through the mock and through run_cmd_safe."""
+
+    async def test_mock_get_jobs_on_node(self, slurm_client: SlurmClient) -> None:
+        jobs = await slurm_client.get_jobs_on_node("DGX-H100-1")
+        assert [j["JOBID"] for j in jobs] == ["12345"]
+
+    async def test_missing_output_paths_yield_empty(self, slurm_client: SlurmClient) -> None:
+        slurm_client._mock_mode = False
+        out, err = await slurm_client.get_job_output("1", detail="JobId=1 StdOut=/dev/null StdErr=/dev/null")
+        assert (out, err) == ("", "")

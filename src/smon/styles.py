@@ -42,9 +42,8 @@ Screen { layout: vertical; overflow: hidden; }
     overflow: hidden;
 }
 
-.table-container {
+.data-table {
     height: 1fr;
-    overflow-y: auto;
     scrollbar-background: $surface;
     scrollbar-color: $primary;
 }
@@ -98,7 +97,6 @@ Screen { layout: vertical; overflow: hidden; }
     height: 1fr;
     border: solid $surface-lighten-1;
     padding: 0 1;
-    overflow-y: auto;
 }
 
 /* Nodes tab split layout */
