@@ -11,7 +11,7 @@ class TestFilter:
         assert filter_instance.user is None
         assert filter_instance.partition is None
         assert filter_instance.state is None
-        assert filter_instance.text == ""  # text defaults to empty string
+        assert filter_instance.job_text == "" and filter_instance.node_text == ""  # text defaults to empty string
 
     def test_filter_jobs_by_user(self, filter_instance: Filter, sample_jobs: list[dict]) -> None:
         """Test filtering jobs by user."""
@@ -36,14 +36,14 @@ class TestFilter:
 
     def test_filter_jobs_by_text(self, filter_instance: Filter, sample_jobs: list[dict]) -> None:
         """Test filtering jobs by text search."""
-        filter_instance.text = "train"
+        filter_instance.job_text = "train"
         filtered = filter_instance.apply_jobs(sample_jobs)
         assert len(filtered) == 1
         assert "train" in filtered[0]["NAME"]
 
     def test_filter_jobs_by_text_case_insensitive(self, filter_instance: Filter, sample_jobs: list[dict]) -> None:
         """Test that text filter is case insensitive."""
-        filter_instance.text = "TRAIN"
+        filter_instance.job_text = "TRAIN"
         filtered = filter_instance.apply_jobs(sample_jobs)
         assert len(filtered) == 1
 
@@ -56,7 +56,7 @@ class TestFilter:
 
     def test_filter_nodes_by_text(self, filter_instance: Filter, sample_nodes: list[dict]) -> None:
         """Test filtering nodes by text."""
-        filter_instance.text = "node01"
+        filter_instance.node_text = "node01"
         filtered = filter_instance.apply_nodes(sample_nodes)
         assert len(filtered) == 1
         assert filtered[0]["NODE"] == "node01"

@@ -1,141 +1,59 @@
-"""Modal screens for smon dashboard.
+"""Modal screens for smon dashboard."""
 
-Note: These modals are currently not used in the main application.
-- ScriptModal: Script is now displayed inline in the split view.
-- OutputModal: Output is now viewed via external pager (bat/less) with 'o' key.
+from typing import Any
 
-These classes are kept for potential future use or as reference.
-"""
-
-import datetime
-from typing import TYPE_CHECKING, Any, Dict, List
-
-from rich.syntax import Syntax
 from rich.table import Table
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import ScrollableContainer, Vertical
+from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Static
-
-from .widgets import LogViewer
-
-if TYPE_CHECKING:
-    from .slurm_client import SlurmClient
+from textual.widgets import Button, Static
 
 
-class ScriptModal(ModalScreen):
-    """Modal screen for displaying job scripts with syntax highlighting."""
+class ConfirmModal(ModalScreen[bool]):
+    """Yes/No confirmation. `y`/Enter confirms, `n`/Escape aborts."""
 
-    BINDINGS = [
-        Binding("escape", "dismiss", "Close"),
-        Binding("q", "dismiss", "Close"),
-    ]
-
-    def __init__(self, jobid: str, script_content: str) -> None:
-        super().__init__()
-        self.jobid = jobid
-        self.script_content = script_content
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="script_modal_container"):
-            yield Static(
-                f"[bold bright_cyan]📄 Slurm Script - Job {self.jobid}[/bold bright_cyan]\n"
-                f"[dim]Press [bold]Escape[/bold] or [bold]q[/bold] to close[/dim]",
-                id="script_header",
-                classes="script-header",
-            )
-            syntax = Syntax(
-                self.script_content,
-                "bash",
-                theme="monokai",
-                line_numbers=True,
-                word_wrap=False,
-                background_color="default",
-            )
-            yield Static(syntax, id="script_content", classes="script-content")
-
-    async def action_dismiss(self, result=None) -> None:
-        """Close the modal."""
-        self.dismiss(result)
-
-
-class OutputModal(ModalScreen):
-    """Modal screen for displaying job output."""
+    DEFAULT_CSS = """
+    ConfirmModal { align: center middle; }
+    #confirm_box {
+        width: auto; max-width: 80%; height: auto;
+        background: $surface; border: thick $warning; padding: 1 2;
+    }
+    #confirm_msg { width: auto; margin-bottom: 1; }
+    #confirm_buttons { width: auto; height: auto; }
+    #confirm_buttons Button { margin-right: 1; }
+    """
 
     BINDINGS = [
-        Binding("escape", "dismiss", "Close"),
-        Binding("q", "dismiss", "Close"),
-        Binding("r", "refresh_output", "Refresh"),
+        Binding("y", "confirm", "Yes"),
+        Binding("enter", "confirm", "Yes", show=False),
+        Binding("n", "abort", "No"),
+        Binding("escape", "abort", "No", show=False),
     ]
 
-    def __init__(self, jobid: str, stdout: str, stderr: str, client: "SlurmClient") -> None:
+    def __init__(self, message: str) -> None:
         super().__init__()
-        self.jobid = jobid
-        self.stdout = stdout
-        self.stderr = stderr
-        self.client = client
+        self.message = message
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="output_modal_container"):
-            yield Static(
-                f"[bold bright_green]📊 Job Output - Job {self.jobid}[/bold bright_green]\n"
-                f"[dim]Press [bold]Escape[/bold]/[bold]q[/bold] to close, "
-                f"[bold]r[/bold] to refresh[/dim]",
-                id="output_header",
-                classes="output-header",
-            )
-            with Vertical(classes="output-content"):
-                yield Static(
-                    "[bold bright_blue]📤 STDOUT[/bold bright_blue]",
-                    classes="output-section-header",
-                )
-                with ScrollableContainer(classes="output-scroll-container"):
-                    yield LogViewer(
-                        self.stdout or "[dim]No stdout available[/dim]",
-                        id="modal_stdout_viewer",
-                        classes="output-log-viewer",
-                    )
-                yield Static(
-                    "[bold bright_red]📥 STDERR[/bold bright_red]",
-                    classes="output-section-header",
-                )
-                with ScrollableContainer(classes="output-scroll-container"):
-                    yield LogViewer(
-                        self.stderr or "[dim]No stderr available[/dim]",
-                        id="modal_stderr_viewer",
-                        classes="output-log-viewer",
-                    )
+        with Vertical(id="confirm_box"):
+            yield Static(Text(self.message), id="confirm_msg")
+            with Horizontal(id="confirm_buttons"):
+                yield Button("Yes (y)", variant="error", id="yes")
+                yield Button("No (n)", id="no")
 
-    async def action_dismiss(self, result=None) -> None:
-        """Close the modal."""
-        self.dismiss(result)
+    def on_mount(self) -> None:
+        self.query_one("#no", Button).focus()
 
-    async def action_refresh_output(self) -> None:
-        """Refresh the output content."""
-        try:
-            stdout, stderr = await self.client.get_job_output(self.jobid, full=True)
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(event.button.id == "yes")
 
-            stdout_viewer = self.query_one("#modal_stdout_viewer", LogViewer)
-            stdout_viewer.set_content(stdout or "No stdout available")
+    def action_confirm(self) -> None:
+        self.dismiss(True)
 
-            stderr_viewer = self.query_one("#modal_stderr_viewer", LogViewer)
-            stderr_viewer.set_content(stderr or "No stderr available")
-
-            refresh_time = datetime.datetime.now().strftime("%H:%M:%S")
-            header = self.query_one("#output_header", Static)
-            header.update(
-                f"[bold bright_green]📊 Job Output - Job {self.jobid}[/bold bright_green]\n"
-                f"[dim]Last refreshed: {refresh_time} | "
-                f"Press [bold]Escape[/bold]/[bold]q[/bold] to close, "
-                f"[bold]r[/bold] to refresh[/dim]"
-            )
-        except Exception as e:
-            header = self.query_one("#output_header", Static)
-            header.update(
-                f"[bold bright_green]📊 Job Output - Job {self.jobid}[/bold bright_green]\n"
-                f"[bold red]Refresh error: {e}[/bold red]"
-            )
+    def action_abort(self) -> None:
+        self.dismiss(False)
 
 
 class NodeJobsModal(ModalScreen[None]):
@@ -152,7 +70,7 @@ class NodeJobsModal(ModalScreen[None]):
         Binding("q", "dismiss", "Close"),
     ]
 
-    def __init__(self, node_name: str, jobs: List[Dict[str, Any]]) -> None:
+    def __init__(self, node_name: str, jobs: list[dict[str, Any]]) -> None:
         super().__init__()
         self.node_name = node_name
         self.jobs = jobs
@@ -160,12 +78,12 @@ class NodeJobsModal(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="node_jobs_modal_container"):
             job_count = len(self.jobs)
-            yield Static(
-                f"[bold bright_cyan]🖥️ Jobs on {self.node_name}[/bold bright_cyan] "
-                f"[dim]({job_count} job{'s' if job_count != 1 else ''})[/dim]\n"
-                f"[dim]Press [bold]Escape[/bold] or [bold]q[/bold] to close[/dim]",
-                id="node_jobs_header",
+            header = Text.assemble(
+                (f"🖥️ Jobs on {self.node_name} ", "bold bright_cyan"),
+                (f"({job_count} job{'s' if job_count != 1 else ''})\n", "dim"),
+                ("Press Escape or q to close", "dim"),
             )
+            yield Static(header, id="node_jobs_header")
             with ScrollableContainer(id="node_jobs_content"):
                 yield Static(self._build_jobs_table(), id="node_jobs_table")
 
@@ -180,30 +98,21 @@ class NodeJobsModal(ModalScreen[None]):
         table.add_column("GPUs", justify="right")
         table.add_column("TIME")
 
-        state_colors = {
-            "RUNNING": "green",
-            "PENDING": "yellow",
-            "COMPLETING": "cyan",
-        }
+        state_colors = {"RUNNING": "green", "PENDING": "yellow", "COMPLETING": "cyan"}
 
         for job in self.jobs:
             state = job.get("STATE", "")
-            state_color = state_colors.get(state, "white")
             table.add_row(
                 job.get("JOBID", ""),
                 job.get("USER", job.get("USERNAME", "")),
-                f"[{state_color}]{state}[/{state_color}]",
-                job.get("NAME", ""),
+                Text(state, style=state_colors.get(state, "white")),
+                Text(job.get("NAME", "")),
                 job.get("CPUS", ""),
                 job.get("GPU_COUNT", "0"),
                 job.get("TIME", ""),
             )
 
         if not self.jobs:
-            table.add_row("[dim]No jobs running on this node[/dim]", "", "", "", "", "", "")
+            table.add_row(Text("No jobs running on this node", style="dim"), "", "", "", "", "", "")
 
         return table
-
-    async def action_dismiss(self, result: None = None) -> None:
-        """Close the modal."""
-        self.dismiss(result)

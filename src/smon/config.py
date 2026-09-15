@@ -4,19 +4,18 @@ import json
 import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
 class Config:
-    """User configuration settings."""
+    """User configuration settings (~/.config/smon/config.json). CLI flags override these."""
 
     refresh_sec: float = 5.0
-    user_filter: Optional[str] = None
-    partition_filter: Optional[str] = None
-    state_filter: Optional[str] = None
+    user_filter: str | None = None
+    partition_filter: str | None = None
+    state_filter: str | None = None
     theme: str = "dark"
-    gpustat_web_url: Optional[str] = None  # e.g., "http://10.50.0.111:48109/"
+    gpustat_web_url: str | None = None  # e.g., "http://10.50.0.111:48109/"
 
     @classmethod
     def config_path(cls) -> Path:
@@ -30,7 +29,7 @@ class Config:
         config_path = cls.config_path()
         if config_path.exists():
             try:
-                with open(config_path, "r") as f:
+                with open(config_path) as f:
                     data = json.load(f)
                 return cls(
                     refresh_sec=data.get("refresh_sec", 5.0),
@@ -40,7 +39,7 @@ class Config:
                     theme=data.get("theme", "dark"),
                     gpustat_web_url=data.get("gpustat_web_url"),
                 )
-            except (json.JSONDecodeError, IOError):
+            except (json.JSONDecodeError, OSError, TypeError):
                 pass
         return cls()
 
@@ -51,5 +50,5 @@ class Config:
         try:
             with open(config_path, "w") as f:
                 json.dump(asdict(self), f, indent=2)
-        except IOError:
+        except OSError:
             pass

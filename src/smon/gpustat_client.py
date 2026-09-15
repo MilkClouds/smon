@@ -2,9 +2,11 @@
 
 import asyncio
 import re
+from collections.abc import Callable
 from html import unescape
-from typing import Callable, Optional
 from urllib.parse import urlparse
+
+from rich.markup import escape
 
 try:
     from websockets.asyncio.client import connect as ws_connect
@@ -46,7 +48,6 @@ class GpustatClient:
         self._ws_url = self._http_to_ws_url(url)
         self._ws = None
         self._running = False
-        self._task: Optional[asyncio.Task] = None
 
     @staticmethod
     def _http_to_ws_url(http_url: str) -> str:
@@ -91,12 +92,10 @@ class GpustatClient:
                                 message = bytes(raw_message).decode("utf-8", errors="replace")
                             parsed = self._parse_html_to_text(message)
                             on_message(parsed)
-                        except asyncio.TimeoutError:
+                        except TimeoutError:
                             # Send ping to keep connection alive
                             await ws.send('{"message": "query"}')
 
-            except asyncio.CancelledError:
-                break
             except Exception as e:
                 if self._running:
                     on_message(f"[red]Connection error: {e}[/red]\nRetrying in {retry_delay:.0f}s...")
@@ -109,48 +108,40 @@ class GpustatClient:
         if self._ws:
             await self._ws.close()
             self._ws = None
-        if self._task:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
-            self._task = None
 
     def _parse_html_to_text(self, html: str) -> str:
-        """Parse HTML content from gpustat-web to displayable text.
+        """Parse gpustat-web HTML into Rich markup for terminal display.
 
-        Converts ANSI CSS classes back to Rich markup for terminal display.
+        ANSI CSS classes become Rich styles; all text is markup-escaped so
+        brackets in process names or model names cannot break rendering.
         """
-        # Remove script and style tags
         html = _SCRIPT_PATTERN.sub("", html)
         html = _STYLE_PATTERN.sub("", html)
 
-        # Extract content from pre tags (gpustat output is usually in pre)
         pre_match = _PRE_PATTERN.search(html)
         if pre_match:
             html = pre_match.group(1)
 
-        # Replace span tags with Rich markup
-        def replace_span(match: re.Match[str]) -> str:
-            classes = match.group(1)
-            content = match.group(2)
+        def plain(fragment: str) -> str:
+            return escape(unescape(_TAG_PATTERN.sub("", fragment)))
+
+        out: list[str] = []
+        pos = 0
+        for match in _SPAN_PATTERN.finditer(html):
+            out.append(plain(html[pos : match.start()]))
+            classes, content = match.group(1), plain(match.group(2))
             styles = [style for cls, style in _ANSI_COLOR_MAP.items() if cls in classes]
             if styles:
                 style_str = " ".join(styles)
-                return f"[{style_str}]{content}[/{style_str}]"
-            return content
+                out.append(f"[{style_str}]{content}[/{style_str}]")
+            else:
+                out.append(content)
+            pos = match.end()
+        out.append(plain(html[pos:]))
 
-        html = _SPAN_PATTERN.sub(replace_span, html)
-
-        # Remove remaining HTML tags and unescape entities
-        html = unescape(_TAG_PATTERN.sub("", html))
-
-        # Clean up whitespace - strip leading/trailing empty lines
-        lines = [line.rstrip() for line in html.split("\n")]
+        lines = [line.rstrip() for line in "".join(out).split("\n")]
         while lines and not lines[0].strip():
             lines.pop(0)
         while lines and not lines[-1].strip():
             lines.pop()
-
         return "\n".join(lines)

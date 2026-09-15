@@ -9,7 +9,7 @@ class TestParseArgs:
     def test_default_args(self) -> None:
         """Test default argument values."""
         args = parse_args([])
-        assert args.refresh == 5.0
+        assert args.refresh is None
         assert args.user is None
         assert args.me is False
         assert args.partition is None
@@ -51,3 +51,28 @@ class TestParseArgs:
         """Test --mock flag."""
         args = parse_args(["--mock"])
         assert args.mock is True
+
+
+class TestBuildApp:
+    """CLI flags override config values; unset flags fall back to config."""
+
+    def test_config_fallback(self) -> None:
+        from smon.config import Config
+        from smon.main import build_app
+
+        config = Config(refresh_sec=12.0, user_filter="cfguser", partition_filter="h100", theme="light")
+        app = build_app(parse_args(["--mock"]), config)
+        assert app.refresh_sec == 12.0
+        assert app.filter.user == "cfguser"
+        assert app.filter.partition == "h100"
+        assert app.theme == "textual-light"
+
+    def test_cli_overrides_config(self) -> None:
+        from smon.config import Config
+        from smon.main import build_app
+
+        config = Config(refresh_sec=12.0, user_filter="cfguser", theme="light")
+        app = build_app(parse_args(["--mock", "--refresh", "3", "--user", "cli", "--theme", "dark"]), config)
+        assert app.refresh_sec == 3.0
+        assert app.filter.user == "cli"
+        assert app.theme == "textual-dark"

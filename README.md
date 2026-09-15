@@ -4,7 +4,7 @@
 
 A terminal user interface (TUI) for monitoring Slurm clusters. Built with [Textual](https://github.com/Textualize/textual) for DGX H100 clusters.
 
-> **⚠️ Development Notice**: This project is mainly implemented by LLM (Sonnet 4/GPT-4) and is not complete, has bugs. Contributions are welcome, including major changes.
+> **⚠️ Development Notice**: This project is mainly implemented with LLM assistance and may have bugs. Contributions are welcome, including major changes.
 
 ## Features
 
@@ -52,43 +52,45 @@ smon
 smon --help                    # Show help
 smon --refresh 10              # Set refresh interval to 10 seconds
 smon --user alice              # Filter jobs by user
-smon --partition gpu           # Filter jobs by partition
+smon --me                      # Filter jobs by the current user
+smon --partition gpu           # Filter jobs and nodes by partition
+smon --state RUNNING           # Default job state filter
+smon --theme light             # Colour theme (dark/light)
 smon --gpustat-web URL         # Enable gpustat-web integration
+smon --mock                    # Demo mode without a Slurm cluster
 ```
+
+Every option can also be set in `~/.config/smon/config.json`
+(`refresh_sec`, `user_filter`, `partition_filter`, `state_filter`, `theme`, `gpustat_web_url`);
+command line flags take precedence.
 
 ## Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
 | `q` | Quit application |
-| `r` | Refresh data |
-| `/` | Focus search input |
-| `f` | Show filter status |
-| `s` | Open script modal for selected job |
-| `o` | Open output modal for selected job |
+| `r` | Refresh data now |
+| `1` / `2` | Switch to Jobs / Nodes tab |
+| `/` | Focus the search box (filters as you type; `Esc` returns to the table) |
+| `Enter` | Load details, script and output of the selected job / show jobs on the selected node |
+| Click header | Sort the jobs table by that column (click again to reverse) |
+| `o` | Open the selected job's stdout/stderr in `bat`/`less` |
 | `t` | Toggle real-time output refresh |
-| `Ctrl+R` | Refresh output in current tab |
+| `c` | Cancel the selected job (asks for confirmation) |
+| `y` | Copy the selected job ID to the clipboard |
+| `+` / `-` | Increase / decrease the refresh interval |
+| `T` | Toggle dark/light theme |
 
 ## TUI Interface
 
 ### Jobs Tab
-- Job information: JobID, User, State, Partition, Resources
-- GPU/CPU/memory usage and timing
-- Select job to view details, script, and output
-
-### Script Tab
-- Shows script for selected job
-- Bash syntax highlighting
-- Modal view with `s` key
-
-### Output Tab
-- stdout/stderr for selected jobs
-- Real-time refresh toggle (`t`)
-- Manual refresh (`Ctrl+R`)
+- Left: job table (JobID, user, state, partition, CPUs, memory, GPUs, time used vs. limit, nodes)
+- Right: `scontrol show job` details, the batch script with syntax highlighting, and the tail of stdout/stderr
+- The table updates in place on each refresh, so scrolling, sorting and the selected row are preserved
 
 ### Nodes Tab
-- Node status and availability
-- GPU/CPU/memory per node
+- Node status, GPU allocation bar, CPU and memory usage per node
+- `Enter` on a node lists the jobs running on it
 - gpustat-web integration (side-by-side view)
 
 ## gpustat-web Integration

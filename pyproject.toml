@@ -24,6 +24,9 @@ smon = "smon:main"
 [tool.ruff]
 line-length = 119
 
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
