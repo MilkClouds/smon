@@ -280,7 +280,7 @@ wheels = [
 ]
 
 [[package]]
-name = "smon"
+name = "smon-tui"
 source = { editable = "." }
 dependencies = [
     { name = "rich" },

@@ -8,7 +8,7 @@ except ImportError:  # pragma: no cover
     try:
         from importlib.metadata import version
 
-        __version__ = version("smon")
+        __version__ = version("smon-tui")
     except Exception:
         __version__ = "0.0.0.dev0"
 

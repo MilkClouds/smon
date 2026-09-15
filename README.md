@@ -18,22 +18,30 @@ A terminal user interface (TUI) for monitoring Slurm clusters. Built with [Textu
 
 ## Installation
 
+The package is published on PyPI as [`smon-tui`](https://pypi.org/project/smon-tui/); the command it installs is `smon`.
+
 ### Using `uvx`/`uv tool` (recommended)
 
 ```sh
-# 1. Use uvx
-$ uvx --from git+https://github.com/MilkClouds/smon.git smon
+# 1. Run without installing
+$ uvx --from smon-tui smon
 
-# 2. Use uv tool
-$ uv tool install git+https://github.com/MilkClouds/smon.git
+# 2. Install as a tool
+$ uv tool install smon-tui
 $ smon
 ```
 
 ### Using pip
 
 ```sh
-$ pip install git+https://github.com/MilkClouds/smon.git
+$ pip install smon-tui
 $ smon
+```
+
+### From git (latest main)
+
+```sh
+$ uv tool install git+https://github.com/MilkClouds/smon.git
 ```
 
 ## Usage
@@ -130,13 +138,4 @@ The Nodes tab will show the Slurm node table on the left and live GPU status fro
 
 ## Contributing
 
-This TUI project is primarily implemented using LLM assistance (Sonnet 4/GPT-4) and is incomplete with known bugs. Contributions are welcome:
-
-- Bug fixes
-- Feature improvements
-- Code refactoring
-- Documentation
-- Major changes
-- Testing
-
-Feel free to open issues or submit pull requests.
+Issues and pull requests are welcome.

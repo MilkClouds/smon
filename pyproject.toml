@@ -1,9 +1,21 @@
 [project]
-name = "smon"
+name = "smon-tui"
 dynamic = ["version"]
 description = "A terminal user interface (TUI) for monitoring Slurm clusters"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
+keywords = ["slurm", "tui", "hpc", "monitoring", "textual"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Distributed Computing",
+]
 dependencies = [
     "rich",
     "textual",
@@ -17,6 +29,11 @@ dev = [
     "pytest-cov",
     "ruff>=0.15.10",
 ]
+
+[project.urls]
+Homepage = "https://github.com/MilkClouds/smon"
+Repository = "https://github.com/MilkClouds/smon"
+Issues = "https://github.com/MilkClouds/smon/issues"
 
 [project.scripts]
 smon = "smon:main"
@@ -33,6 +50,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/smon"]
 
 [tool.hatch.build.hooks.vcs]
 version-file = "src/smon/_version.py"
