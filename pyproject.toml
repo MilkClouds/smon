@@ -38,6 +38,10 @@ Issues = "https://github.com/MilkClouds/smon/issues"
 [project.scripts]
 smon = "smon:main"
 
+[tool.uv]
+# Reproducible resolves without a committed lock file: ignore anything published after this date.
+exclude-newer = "2026-09-15T00:00:00Z"
+
 [tool.ruff]
 line-length = 119
 

@@ -11,11 +11,6 @@ updates:
   directory: "/"
   multi-ecosystem-group: python
   patterns: ["*"]
-- package-ecosystem: "uv"
-  directory: "/"
-  multi-ecosystem-group: python
-  patterns: ["*"]
-
 # GitHub Actions
 - package-ecosystem: "github-actions"
   directory: "/"
