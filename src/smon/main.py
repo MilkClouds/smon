@@ -3,6 +3,7 @@
 import argparse
 import os
 
+from . import __version__
 from .app import SlurmDashboard
 from .config import Config
 
@@ -10,6 +11,7 @@ from .config import Config
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command line arguments. Unset options fall back to ~/.config/smon/config.json."""
     p = argparse.ArgumentParser(description="Slurm Dashboard (Textual)")
+    p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     p.add_argument("--refresh", type=float, default=None, help="Auto-refresh interval in seconds (default: 5)")
     p.add_argument("--user", type=str, default=None, help="Default user filter")
     p.add_argument("--me", action="store_true", help="Filter jobs for current user (alias for --user $USER)")

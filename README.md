@@ -53,6 +53,7 @@ smon
 
 ```sh
 smon --help                    # Show help
+smon --version                 # Show version
 smon --refresh 10              # Set refresh interval to 10 seconds
 smon --user alice              # Filter jobs by user
 smon --me                      # Filter jobs by the current user

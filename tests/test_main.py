@@ -53,6 +53,18 @@ class TestParseArgs:
         assert args.mock is True
 
 
+class TestVersion:
+    def test_version_flag(self, capsys) -> None:
+        import pytest
+
+        from smon import __version__
+
+        with pytest.raises(SystemExit) as exc:
+            parse_args(["--version"])
+        assert exc.value.code == 0
+        assert __version__ in capsys.readouterr().out
+
+
 class TestBuildApp:
     """CLI flags override config values; unset flags fall back to config."""
 
