@@ -17,6 +17,7 @@ from textual.containers import Horizontal, ScrollableContainer, Vertical
 from textual.widgets import DataTable, Footer, Header, Input, Select, Static, TabbedContent, TabPane
 from textual.worker import Worker
 
+from . import driver
 from .gpustat_client import GpustatClient
 from .modals import ConfirmModal, NodeJobsModal
 from .slurm_client import SlurmClient
@@ -155,6 +156,9 @@ class SlurmDashboard(App):
         # gpustat-web integration
         self.gpustat_web_url = gpustat_web_url
         self._gpustat_client: GpustatClient | None = None
+
+    def get_driver_class(self):
+        return driver.get_driver_class() or super().get_driver_class()
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)

@@ -118,6 +118,14 @@ smon can display real-time GPU status from [gpustat-web](https://github.com/wook
 
 The Nodes tab will show the Slurm node table on the left and live GPU status from gpustat-web on the right.
 
+## Troubleshooting
+
+**Clicks land in the top-left corner / open the command palette.** Some terminal multiplexers (herdr ≤ 0.9.0,
+[herdrdev/herdr#3295](https://github.com/herdrdev/herdr/issues/3295)) advertise pixel-coordinate mouse reporting
+but keep sending cell coordinates, which makes Textual apps map every click to the first cell. smon therefore
+does not negotiate pixel mouse mode at all; set `SMON_PIXEL_MOUSE=1` to restore Textual's default if you need
+sub-cell precision. Upgrading the multiplexer (herdr ≥ 0.9.1) fixes it upstream as well.
+
 ## Built with
 
 - [Textual](https://github.com/Textualize/textual) - TUI framework
