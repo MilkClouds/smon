@@ -68,6 +68,18 @@ class TestFilter:
         assert len(filtered) == 1
         assert filtered[0]["PARTITION"] == "cpu"
 
+    def test_filter_nodes_in_two_partitions(self, filter_instance: Filter) -> None:
+        nodes = [
+            {"NODE": "DGX-H100-1", "PARTITION": "h100-mn,h100-mn-slot", "PARTITIONS": ["h100-mn", "h100-mn-slot"]},
+            {"NODE": "DGX-H100-9", "PARTITION": "h100*", "PARTITIONS": ["h100*"]},
+        ]
+        filter_instance.partition = "h100-mn-slot"
+        assert [n["NODE"] for n in filter_instance.apply_nodes(nodes)] == ["DGX-H100-1"]
+        filter_instance.partition = "h100-mn"
+        assert [n["NODE"] for n in filter_instance.apply_nodes(nodes)] == ["DGX-H100-1"]
+        filter_instance.partition = "mn,h100"  # matches within one partition name, not across the join
+        assert filter_instance.apply_nodes(nodes) == []
+
     def test_filter_no_match(self, filter_instance: Filter, sample_jobs: list[dict]) -> None:
         """Test filtering with no matches."""
         filter_instance.user = "nonexistent"

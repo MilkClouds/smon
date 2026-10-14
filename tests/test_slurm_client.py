@@ -187,6 +187,45 @@ class TestOutputParsing:
         assert jobs[1]["GPU_COUNT"] == "8"
         assert jobs[1]["NAME"] == "ev|x"
 
+    # `sinfo -N -S N,#P` on a cluster where h100-mn-slot overlaps h100-mn.
+    SINFO_OVERLAP = (
+        "DGX-H100-1|h100-mn|mixed-|up|60/164/0/224|1960740|1032192|gpu:8(S:0-1)|gpu:0(IDX:N/A)|\n"
+        "DGX-H100-1|h100-mn-slot|mixed-|up|60/164/0/224|1960740|1032192|gpu:8(S:0-1)|gpu:0(IDX:N/A)|\n"
+        "DGX-H100-2|h100-mn|mixed|up|160/64/0/224|1960740|983040|gpu:8(S:0-1)|gpu:8(IDX:0-7)|\n"
+        "DGX-H100-2|h100-mn-slot|mixed|up|160/64/0/224|1960740|983040|gpu:8(S:0-1)|gpu:8(IDX:0-7)|\n"
+        "DGX-H100-9|h100*|mixed|up|114/110/0/224|1960740|925696|gpu:8(S:0-1)|gpu:6(IDX:0-5)|\n"
+    )
+
+    def test_parse_nodes_one_row_per_node(self, slurm_client: SlurmClient) -> None:
+        nodes = slurm_client._parse_nodes(self.SINFO_OVERLAP)
+        assert [n["NODE"] for n in nodes] == ["DGX-H100-1", "DGX-H100-2", "DGX-H100-9"]
+        assert nodes[0]["PARTITIONS"] == ["h100-mn", "h100-mn-slot"]
+        assert nodes[0]["PARTITION"] == "h100-mn,h100-mn-slot"
+        assert nodes[2]["PARTITIONS"] == ["h100*"]
+        # Each node's resources are counted once.
+        assert sum(int(slurm_client.parse_node_gpu_info(n["GRES"])) for n in nodes) == 24
+        assert sum(int(n["CPUS_STATE"].split("/")[0]) for n in nodes) == 60 + 160 + 114
+
+    def test_merge_keeps_input_partition_order(self) -> None:
+        from smon.slurm_client import merge_node_partitions
+
+        rows = [
+            {"NODE": "n1", "PARTITION": "zeta"},
+            {"NODE": "n1", "PARTITION": "alpha"},
+            {"NODE": "n1", "PARTITION": "zeta"},
+        ]
+        assert merge_node_partitions(rows) == [
+            {"NODE": "n1", "PARTITION": "zeta,alpha", "PARTITIONS": ["zeta", "alpha"], "AVAIL": "", "AVAILS": ["", ""]}
+        ]
+
+    def test_merge_keeps_per_partition_avail(self) -> None:
+        from smon.slurm_client import merge_node_partitions
+
+        same = merge_node_partitions([{"NODE": "n1", "PARTITION": p, "AVAIL": "up"} for p in ("a", "b")])
+        assert same[0]["AVAIL"] == "up"
+        rows = [{"NODE": "n1", "PARTITION": "a", "AVAIL": "up"}, {"NODE": "n1", "PARTITION": "b", "AVAIL": "down"}]
+        assert merge_node_partitions(rows)[0]["AVAIL"] == "up,down"
+
     def test_parse_gpu_type(self, slurm_client: SlurmClient) -> None:
         assert slurm_client._parse_gpu_type("cpu=8,gres/gpu:h100:4") == "H100"
         assert slurm_client._parse_gpu_type("cpu=8,gres/gpu=4") == ""
@@ -206,6 +245,21 @@ class TestSlurmClientLive:
     async def test_mock_get_jobs_on_node(self, slurm_client: SlurmClient) -> None:
         jobs = await slurm_client.get_jobs_on_node("DGX-H100-1")
         assert [j["JOBID"] for j in jobs] == ["12345"]
+
+    async def test_get_nodes_sorts_partitions_by_config(self, slurm_client: SlurmClient, monkeypatch) -> None:
+        from smon import slurm_client as mod
+
+        calls: list[list[str]] = []
+
+        async def fake_run(cmd: list[str], **_kw):
+            calls.append(cmd)
+            return 0, TestOutputParsing.SINFO_OVERLAP, ""
+
+        monkeypatch.setattr(mod, "run_cmd_safe", fake_run)
+        slurm_client._mock_mode = False
+        nodes = await slurm_client.get_nodes()
+        assert calls[0][calls[0].index("-S") + 1] == "N,#P"
+        assert len(nodes) == 3
 
     async def test_missing_output_paths_yield_empty(self, slurm_client: SlurmClient) -> None:
         slurm_client._mock_mode = False

@@ -75,3 +75,14 @@ async def test_node_jobs_modal() -> None:
         await pilot.press("2", "enter")
         await pilot.pause(0.3)
         assert isinstance(app.screen, NodeJobsModal)
+
+
+async def test_node_in_two_partitions_is_one_row() -> None:
+    app = SlurmDashboard(mock_mode=True)
+    async with app.run_test(size=(160, 50)) as pilot:
+        await pilot.pause(0.3)
+        nodes = app.query_one("#nodes_table", DataTable)
+        rows = [nodes.get_row_at(i) for i in range(nodes.row_count)]
+        assert [r[0] for r in rows] == ["DGX-H100-1", "DGX-H100-2"]
+        assert rows[0][-1] == "h100,h100-slot"
+        assert "Nodes: 2 " in app.status.message

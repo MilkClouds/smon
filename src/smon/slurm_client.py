@@ -182,20 +182,23 @@ class SlurmClient:
         return jobs
 
     async def get_nodes(self) -> list[dict[str, Any]]:
-        """Get list of nodes from Slurm (one row per node/partition pair)."""
+        """Get list of nodes from Slurm, one row per node."""
         if self._mock_mode:
-            return self._mock_nodes()
+            return merge_node_partitions(self._mock_nodes())
 
-        rc, out, err = await run_cmd_safe([self.cmds.sinfo, "-N", "-h", "-O", _fmt(*self.NODE_FIELDS)])
+        # "#P" orders a node's partitions as slurm.conf declares them.
+        rc, out, err = await run_cmd_safe([self.cmds.sinfo, "-N", "-h", "-S", "N,#P", "-O", _fmt(*self.NODE_FIELDS)])
         if rc != 0:
             raise RuntimeError(f"sinfo failed: {err.strip() or 'unknown error'}")
+        return self._parse_nodes(out)
 
-        nodes: list[dict[str, Any]] = []
+    def _parse_nodes(self, out: str) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
         for line in out.splitlines():
             parts = _split(line, len(self.NODE_COLS))
             if parts is not None:
-                nodes.append(dict(zip(self.NODE_COLS, parts, strict=True)))
-        return nodes
+                rows.append(dict(zip(self.NODE_COLS, parts, strict=True)))
+        return merge_node_partitions(rows)
 
     async def get_job_detail(self, jobid: str) -> str:
         """Get detailed information for a specific job."""
@@ -402,8 +405,8 @@ class SlurmClient:
         ]
 
     def _mock_nodes(self) -> list[dict[str, Any]]:
-        """Return mock node data for testing without Slurm."""
-        return [
+        """Return mock `sinfo -N` rows for testing without Slurm."""
+        nodes = [
             {
                 "NODE": "DGX-H100-1",
                 "PARTITION": "h100",
@@ -427,6 +430,8 @@ class SlurmClient:
                 "GRES_USED": "gpu:(null):0(IDX:N/A)",
             },
         ]
+        # sinfo -N repeats a node for every partition it belongs to.
+        return [*nodes, {**nodes[0], "PARTITION": "h100-slot"}]
 
     @staticmethod
     def parse_time_to_seconds(time_str: str) -> int:
@@ -476,6 +481,25 @@ class SlurmClient:
         if rc == 0:
             return True, f"Job {jobid} cancelled successfully"
         return False, err.strip() or "Unknown error"
+
+
+def merge_node_partitions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse `sinfo -N` rows (one per node/partition pair) into one row per node.
+
+    PARTITIONS lists the node's partitions in input order; PARTITION joins them with ",".
+    AVAIL is a partition's availability, so it is joined the same way when the partitions disagree.
+    """
+    merged: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        node = merged.get(row["NODE"])
+        if node is None:
+            merged[row["NODE"]] = {**row, "PARTITIONS": [row["PARTITION"]], "AVAILS": [row.get("AVAIL", "")]}
+        elif row["PARTITION"] not in node["PARTITIONS"]:
+            node["PARTITIONS"].append(row["PARTITION"])
+            node["AVAILS"].append(row.get("AVAIL", ""))
+            node["PARTITION"] = ",".join(node["PARTITIONS"])
+            node["AVAIL"] = node["AVAILS"][0] if len(set(node["AVAILS"])) == 1 else ",".join(node["AVAILS"])
+    return list(merged.values())
 
 
 def collapse_carriage_returns(text: str) -> str:
