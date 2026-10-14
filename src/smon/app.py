@@ -557,10 +557,10 @@ class SlurmDashboard(App):
         table = self.query_one("#nodes_table", DataTable)
         rows: list[Row] = []
         for n in nodes:
-            node, partition = n.get("NODE", ""), n.get("PARTITION", "")
+            node = n.get("NODE", "")
             rows.append(
                 (
-                    f"{node}|{partition}",  # sinfo -N lists a node once per partition
+                    node,
                     (
                         node,
                         self._format_state(n.get("STATE", ""), is_node=True),
@@ -568,7 +568,7 @@ class SlurmDashboard(App):
                         self._format_gpu_bar(n.get("GRES", ""), n.get("GRES_USED", "")),
                         self._format_cpu_usage(n.get("CPUS_STATE", "")),
                         self._format_mem_usage(n.get("ALLOC_MEM", ""), n.get("MEM", "")),
-                        partition,
+                        n.get("PARTITION", ""),
                     ),
                 )
             )

@@ -123,7 +123,8 @@ class Filter:
         """Apply filter to nodes list."""
         res = rows
         if self.partition:
-            res = [r for r in res if self.partition.lower() in r.get("PARTITION", "").lower()]
+            pat = self.partition.lower()
+            res = [r for r in res if any(pat in p.lower() for p in r.get("PARTITIONS") or [r.get("PARTITION", "")])]
         if self.node_text:
             res = self._text_match(res, self.node_text)
         return res
