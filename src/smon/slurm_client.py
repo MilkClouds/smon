@@ -487,15 +487,18 @@ def merge_node_partitions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Collapse `sinfo -N` rows (one per node/partition pair) into one row per node.
 
     PARTITIONS lists the node's partitions in input order; PARTITION joins them with ",".
+    AVAIL is a partition's availability, so it is joined the same way when the partitions disagree.
     """
     merged: dict[str, dict[str, Any]] = {}
     for row in rows:
         node = merged.get(row["NODE"])
         if node is None:
-            merged[row["NODE"]] = {**row, "PARTITIONS": [row["PARTITION"]]}
+            merged[row["NODE"]] = {**row, "PARTITIONS": [row["PARTITION"]], "AVAILS": [row.get("AVAIL", "")]}
         elif row["PARTITION"] not in node["PARTITIONS"]:
             node["PARTITIONS"].append(row["PARTITION"])
+            node["AVAILS"].append(row.get("AVAIL", ""))
             node["PARTITION"] = ",".join(node["PARTITIONS"])
+            node["AVAIL"] = node["AVAILS"][0] if len(set(node["AVAILS"])) == 1 else ",".join(node["AVAILS"])
     return list(merged.values())
 
 

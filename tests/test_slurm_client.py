@@ -215,8 +215,16 @@ class TestOutputParsing:
             {"NODE": "n1", "PARTITION": "zeta"},
         ]
         assert merge_node_partitions(rows) == [
-            {"NODE": "n1", "PARTITION": "zeta,alpha", "PARTITIONS": ["zeta", "alpha"]}
+            {"NODE": "n1", "PARTITION": "zeta,alpha", "PARTITIONS": ["zeta", "alpha"], "AVAIL": "", "AVAILS": ["", ""]}
         ]
+
+    def test_merge_keeps_per_partition_avail(self) -> None:
+        from smon.slurm_client import merge_node_partitions
+
+        same = merge_node_partitions([{"NODE": "n1", "PARTITION": p, "AVAIL": "up"} for p in ("a", "b")])
+        assert same[0]["AVAIL"] == "up"
+        rows = [{"NODE": "n1", "PARTITION": "a", "AVAIL": "up"}, {"NODE": "n1", "PARTITION": "b", "AVAIL": "down"}]
+        assert merge_node_partitions(rows)[0]["AVAIL"] == "up,down"
 
     def test_parse_gpu_type(self, slurm_client: SlurmClient) -> None:
         assert slurm_client._parse_gpu_type("cpu=8,gres/gpu:h100:4") == "H100"
